@@ -86,7 +86,7 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk "dist/Letterlock-${{ steps.ver.outputs.version }}-debug.apk"
           echo "::warning::Signing secrets are not set, so this is a debug build. See README, Release signing."
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: Letterlock-${{ steps.ver.outputs.version }}
           path: dist/*
