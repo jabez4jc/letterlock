@@ -1,0 +1,1144 @@
+<title>Letterlock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen game-show stage — marquee header, board under a spotlight, controls docked at the bottom */
+:root{
+  --stage:#110e2b; --stage-2:#1b1745; --panel:#241f58; --panel-2:#2e286e; --line:#3d377f;
+  --ink:#f4f1ff; --muted:#a7a1d4; --gold:#ffc94a; --gold-ink:#2a1d00; --gold-text:#ffc94a;
+  --hit:#17b890; --near:#ff8a4c; --miss:#3a3474; --miss-ink:#c9c4f0; --bad:#ff5d73; --empty:#1d1948;
+  --key:#4a4492; --key-miss:#262158; --key-miss-ink:#6f69a8; --edge:#5a53a8; --edge-hi:#a49cf0;
+  --glow1:rgba(255,201,74,.13); --glow2:rgba(23,184,144,.08); --scrim:rgba(8,6,24,.72);
+  --f-display:"Archivo Black","Arial Black",Impact,sans-serif;
+  --f-body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+:root[data-skin=ocean]{--stage:#06222b;--stage-2:#0b3140;--panel:#0f3d4f;--panel-2:#145066;--line:#1f6077;--empty:#0b2f3b;--muted:#9cc4cf;--gold:#ffd166;--gold-text:#ffd166;--hit:#3ddc97;--near:#ff6b6b;--miss:#1a4656;--miss-ink:#a9d3de;--key:#1d5a70;--key-miss:#0d2c37;--key-miss-ink:#4f7f8e;--edge:#2c7a93;--edge-hi:#7fd0e6;--glow1:rgba(127,208,230,.14);--glow2:rgba(61,220,151,.08)}
+:root[data-skin=sunset]{--stage:#2a0f1f;--stage-2:#3a1429;--panel:#4a1b35;--panel-2:#5c2343;--line:#6e2d51;--empty:#35122a;--muted:#d9a5bf;--gold:#ffb347;--gold-text:#ffb347;--hit:#3fc1a5;--near:#ff5e8a;--miss:#4f2140;--miss-ink:#e6b7cd;--key:#6b2b52;--key-miss:#33122a;--key-miss-ink:#8a5170;--edge:#8a3f68;--edge-hi:#f0a0c4;--glow1:rgba(255,179,71,.16);--glow2:rgba(255,94,138,.08)}
+:root[data-skin=daylight]{--stage:#eceef6;--stage-2:#ffffff;--panel:#ffffff;--panel-2:#f2f3fa;--line:#d4d7e7;--empty:#ffffff;--ink:#1b1d33;--muted:#5d6180;--gold:#f5b700;--gold-ink:#2a1d00;--gold-text:#8f6200;--hit:#12a27a;--near:#ef7438;--miss:#8e92ab;--miss-ink:#ffffff;--key:#dde0ee;--key-miss:#b4b7c9;--key-miss-ink:#6c7090;--edge:#b3b7d0;--edge-hi:#6d72a8;--glow1:rgba(245,183,0,.16);--glow2:rgba(18,162,122,.08);--scrim:rgba(30,32,60,.45);color-scheme:light}
+:root.cb{--hit:#3d8bff;--near:#ffb020}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--stage);color:var(--ink);font-family:var(--f-body);font-size:15px;overflow:hidden;
+  background-image:radial-gradient(ellipse 70% 55% at 50% 0%,var(--glow1),transparent 70%),radial-gradient(ellipse 60% 40% at 50% 100%,var(--glow2),transparent 70%);
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+a{color:var(--gold-text)}
+.app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px}
+.view{flex:1;display:flex;flex-direction:column;min-height:0}
+
+/* marquee */
+.marquee{display:flex;justify-content:space-between;gap:4px;padding:0 4px;height:8px;align-items:center;flex:none}
+.marquee i{width:5px;height:5px;border-radius:50%;background:var(--gold);opacity:.25;box-shadow:0 0 6px var(--gold)}
+.marquee i:nth-child(3n+1){animation:bulb 1.2s steps(1) infinite}
+.marquee i:nth-child(3n+2){animation:bulb 1.2s steps(1) .4s infinite}
+.marquee i:nth-child(3n){animation:bulb 1.2s steps(1) .8s infinite}
+@keyframes bulb{0%{opacity:1}33%{opacity:.25}}
+
+/* coins & profile */
+.coin{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3c4,#ffc94a 55%,#c98a00);display:inline-block;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.coins{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-weight:700;font-size:14px;padding:6px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.coins.bump{animation:pop .35s}
+.profile{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--stage-2);border:1px solid var(--line);margin-top:8px}
+.rankbadge{width:40px;height:40px;border-radius:9px;background:var(--gold);color:var(--gold-ink);font-family:var(--f-display);display:grid;place-items:center;font-size:18px;flex:none}
+.rankinfo{flex:1;min-width:0}
+.rankinfo b{font-size:14px;display:block}
+.rankinfo small{color:var(--muted);font-size:11px;font-family:var(--f-mono)}
+.xpbar{height:6px;border-radius:999px;background:var(--empty);overflow:hidden;margin:5px 0 3px;border:1px solid var(--line)}
+.xpbar i{display:block;height:100%;background:var(--hit);transition:width .6s}
+
+/* home */
+.home{overflow-y:auto;gap:16px;padding-bottom:12px}
+.brand{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:4px}
+.logo{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.logo b{font-family:var(--f-display);font-weight:400;width:clamp(28px,8.2vw,42px);aspect-ratio:1;display:grid;place-items:center;font-size:clamp(16px,4.6vw,24px);border-radius:7px;background:var(--empty);border:2px solid var(--line)}
+.logo b.h{background:var(--hit);border-color:var(--hit);color:#fff}
+.logo b.n{background:var(--near);border-color:var(--near);color:#fff}
+.logo b.g{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.tag{color:var(--muted);font-weight:600;text-align:center;max-width:34ch;line-height:1.45;margin:0}
+.daily-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:linear-gradient(120deg,#ffc94a,#ffae3b);color:#2a1d00;text-align:left}
+.daily-banner h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:19px;letter-spacing:.02em}
+.daily-banner p{margin:2px 0 0;font-weight:700;font-size:13px;opacity:.8}
+.daily-banner .go{font-family:var(--f-display);font-size:13px;background:#2a1d00;color:#ffc94a;padding:9px 14px;border-radius:999px;white-space:nowrap}
+.missions{padding:14px;border-radius:14px;background:var(--stage-2);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.missions header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.missions h4{margin:0;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)}
+.missions header small{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.mission{display:grid;grid-template-columns:1fr auto;gap:5px 12px;align-items:center}
+.mission span{font-weight:700;font-size:13.5px;min-width:0}
+.mission .bar{height:6px;border-radius:999px;background:var(--empty);overflow:hidden;border:1px solid var(--line)}
+.mission .bar i{display:block;height:100%;background:var(--hit)}
+.mission .rw{grid-row:1/3;grid-column:2;display:flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:12px;font-weight:700;padding:7px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line)}
+.mission .rw.claim{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);animation:pulse 1.4s ease-in-out infinite}
+.mission .rw.done{opacity:.5}
+.mission.done span{text-decoration:line-through;color:var(--muted)}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{text-align:left;padding:14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px;transition:transform .12s,background .12s;min-width:0}
+.mode:hover{background:var(--panel-2)}
+.mode:active{transform:scale(.98)}
+.mode .k{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)}
+.mode h4{margin:0;font-family:var(--f-display);font-weight:400;font-size:18px}
+.mode p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}
+.mode .best{margin-top:auto;font-family:var(--f-mono);font-size:12px;color:var(--ink);opacity:.85}
+.mode.wide{grid-column:1/-1}
+.foot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.foot button{padding:11px 4px;border-radius:12px;background:var(--stage-2);border:1px solid var(--line);font-weight:700;font-size:13px}
+.foot button:hover{background:var(--panel)}
+.loading{color:var(--muted);text-align:center;font-size:13px;margin:0}
+
+/* game */
+.topbar{display:flex;align-items:center;gap:8px;padding:6px 0 4px}
+.iconbtn{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--stage-2);border:1px solid var(--line);flex:none}
+.iconbtn svg{width:18px;height:18px}
+.hud{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.hud .m{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-text)}
+.hud .s{font-family:var(--f-mono);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.topbar .coins{padding:5px 9px;font-size:13px}
+.status{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;min-height:28px;align-items:center}
+.chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--stage-2);border:1px solid var(--line);white-space:nowrap}
+.chip.gold{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.chip.p0{border-color:var(--hit);color:var(--hit)}
+.chip.p1{border-color:var(--near);color:var(--near)}
+.chip.on{background:currentColor}
+.chip.on span{color:var(--stage)}
+.lives{letter-spacing:2px;color:var(--bad)}
+.clue{margin-top:6px;padding:8px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:13px;line-height:1.4;animation:rise .25s}
+.clue .pos{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text);margin-right:6px}
+.clue .exm{display:block;color:var(--muted);font-style:italic;margin-top:3px}
+.boardwrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;padding:6px 0}
+.board{--t:52px;display:grid;gap:6px;padding:4px;border-radius:12px;transition:box-shadow .3s}
+.board.golden{box-shadow:0 0 0 2px var(--gold),0 0 28px rgba(255,201,74,.35)}
+.row{display:grid;grid-template-columns:repeat(var(--len),var(--t));gap:6px;position:relative}
+.row.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.cell{width:var(--t);height:var(--t);border-radius:8px;display:grid;place-items:center;font-family:var(--f-display);font-size:calc(var(--t) * .5);text-transform:uppercase;background:var(--empty);border:2px solid var(--line);position:relative;line-height:1}
+.cell.lock{border-color:var(--gold);color:var(--gold-text)}
+.cell.typed{animation:pop .1s}
+.cell.ghost{color:var(--muted);opacity:.45}
+.cell.ghost.hint{color:var(--gold-text);opacity:.85}
+.row.active .cell{border-color:var(--edge)}
+.row.active .cell.lock{border-color:var(--gold)}
+.row.active .cell.typed{border-color:var(--edge-hi)}
+.row.active .cell.cur{box-shadow:inset 0 -4px 0 var(--gold)}
+@keyframes pop{50%{transform:scale(1.08)}}
+.cell.hit,.cell.near,.cell.miss{border-color:transparent;color:#fff}
+.cell.hit{background:var(--hit)} .cell.near{background:var(--near)} .cell.miss{background:var(--miss);color:var(--miss-ink)}
+.cb .cell.near::after,.cb .key.near::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#fff}
+.cb .cell.hit::after,.cb .key.hit::after{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;background:#fff;clip-path:polygon(0 0,100% 0,100% 100%)}
+.cell.flip{animation:flip .5s ease both;animation-delay:var(--d,0s)}
+@keyframes flip{0%{transform:rotateX(0);background:var(--empty);border-color:var(--line);color:var(--ink)}49%{transform:rotateX(90deg);background:var(--empty);border-color:var(--line);color:var(--ink)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.row.timeout .cell{background:transparent;border-style:dashed;color:var(--bad);font-size:calc(var(--t) * .28)}
+.row .who{position:absolute;left:-12px;top:50%;width:7px;height:7px;border-radius:50%;transform:translateY(-50%)}
+.row.win .cell{animation:bounce .5s ease both;animation-delay:var(--d,0s)}
+@keyframes bounce{40%{transform:translateY(-12px)}70%{transform:translateY(3px)}}
+.timer{height:8px;border-radius:999px;background:var(--stage-2);overflow:hidden;border:1px solid var(--line);margin:4px 0;flex:none}
+.timer i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;transition:transform .1s linear}
+.timer.low i{background:var(--bad)}
+.tools{display:grid;grid-template-columns:repeat(var(--n,4),1fr);gap:6px;padding:4px 0 6px}
+.tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;font-size:12.5px;min-width:0}
+.tool .lb{display:flex;align-items:center;gap:5px}
+.tool .cost{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-mono);font-size:11px;color:var(--gold-text);font-weight:700}
+.tool .cost .coin{width:10px;height:10px}
+.tool:disabled{opacity:.4;cursor:default}
+.tool svg{width:15px;height:15px;flex:none}
+.tool.pulse{border-color:var(--gold);animation:pulse 1.3s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 4px rgba(255,201,74,.28)}}
+.kb{display:flex;flex-direction:column;gap:6px;padding-bottom:4px;flex:none}
+.kr{display:flex;gap:5px;justify-content:center}
+.key{flex:1;max-width:44px;height:52px;border-radius:7px;background:var(--key);font-weight:800;font-size:15px;text-transform:uppercase;display:grid;place-items:center;position:relative;transition:background .2s}
+.key:active{transform:translateY(1px);filter:brightness(1.15)}
+.key.wide{max-width:66px;flex:1.5;font-size:11px;letter-spacing:.05em}
+.key.hit{background:var(--hit);color:#fff} .key.near{background:var(--near);color:#fff} .key.miss{background:var(--key-miss);color:var(--key-miss-ink)}
+.key.swept{background:var(--key-miss);color:var(--key-miss-ink);opacity:.55;text-decoration:line-through}
+.key svg{width:20px;height:20px}
+.spacer{flex:.5}
+
+/* overlays */
+.scrim{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:20;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--stage-2);border:1px solid var(--line);border-radius:18px;width:100%;max-width:440px;max-height:100%;overflow-y:auto;padding:22px 20px;box-shadow:0 30px 80px rgba(0,0,0,.4);animation:rise .25s ease}
+@keyframes rise{from{transform:translateY(16px);opacity:0}}
+.sheet h2{font-family:var(--f-display);font-weight:400;margin:0 0 4px;font-size:24px;text-wrap:balance}
+.sheet h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text);margin:18px 0 8px}
+.sheet p{color:var(--muted);line-height:1.5;margin:6px 0}
+.sheet .x{float:right;margin:-6px -6px 0 0}
+.praise{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-text);text-align:center}
+.big-word{display:flex;gap:5px;justify-content:center;margin:12px 0 6px;flex-wrap:wrap}
+.big-word b{font-family:var(--f-display);font-weight:400;width:40px;height:40px;display:grid;place-items:center;border-radius:7px;background:var(--hit);color:#fff;font-size:21px;text-transform:uppercase}
+.big-word.lost b{background:var(--miss);color:var(--miss-ink)}
+.big-word.gold b{background:var(--gold);color:var(--gold-ink)}
+.def{background:var(--panel);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13.5px;line-height:1.45;color:var(--ink)}
+.def i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text);margin-right:6px}
+.def em{display:block;color:var(--muted);margin-top:4px}
+.pts{font-family:var(--f-mono);text-align:center;font-size:30px;font-weight:700;color:var(--gold-text);margin:6px 0}
+.earn{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:4px 0}
+.earn span{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-weight:700;font-size:13px;padding:5px 10px;border-radius:999px;background:var(--panel)}
+.break{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px;color:var(--muted);margin:8px auto;max-width:260px;font-variant-numeric:tabular-nums}
+.break span:nth-child(even){text-align:right;font-family:var(--f-mono);color:var(--ink)}
+.btns{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn{flex:1;padding:13px 16px;border-radius:12px;font-weight:800;background:var(--panel-2);border:1px solid var(--line);min-width:120px}
+.btn.primary{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.btn:disabled{opacity:.45;cursor:default}
+.center{text-align:center}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.stats div{background:var(--panel);border-radius:10px;padding:10px 4px}
+.stats b{display:block;font-family:var(--f-mono);font-size:20px}
+.stats span{font-size:11px;color:var(--muted);font-weight:700}
+.dist{display:flex;flex-direction:column;gap:4px}
+.dist div{display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px}
+.dist i{display:block;height:20px;min-width:22px;background:var(--miss);border-radius:4px;text-align:right;padding-right:6px;font-style:normal;line-height:20px;color:var(--miss-ink)}
+.dist i.me{background:var(--hit);color:#fff}
+.awards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.award{padding:10px;border-radius:10px;background:var(--panel);border:1px solid var(--line);opacity:.45}
+.award.got{opacity:1;border-color:var(--gold)}
+.award b{display:block;font-size:13px}
+.award span{font-size:12px;color:var(--muted)}
+.set{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.set label{font-weight:700}
+.set small{display:block;color:var(--muted);font-weight:500;font-size:12px;margin-top:2px}
+.set input[type=checkbox]{width:44px;height:26px;appearance:none;-webkit-appearance:none;background:var(--miss);border-radius:999px;position:relative;cursor:pointer;flex:none;transition:background .2s}
+.set input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.set input[type=checkbox]:checked{background:var(--hit)}
+.set input[type=checkbox]:checked::after{transform:translateX(18px)}
+.set select,.set input[type=text],.search{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 9px;font:inherit;max-width:140px;user-select:text}
+.search{max-width:none;width:100%;margin:6px 0 10px;padding:10px 12px}
+.wordlist{display:flex;flex-wrap:wrap;gap:6px}
+.wordlist a{font-family:var(--f-mono);font-size:12px;padding:4px 8px;border-radius:6px;background:var(--panel);text-decoration:none;color:var(--ink);text-transform:uppercase}
+.wordlist a.lost{color:var(--bad)}
+.book{display:flex;flex-direction:column;gap:8px}
+.entry{padding:10px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.entry b{font-family:var(--f-display);font-weight:400;font-size:16px;text-transform:uppercase;letter-spacing:.04em}
+.entry i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text);margin-left:8px}
+.entry p{margin:3px 0 0;font-size:13px;color:var(--muted)}
+.skins{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.skin{border-radius:12px;border:2px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.skin.on{border-color:var(--gold)}
+.skin .sw{display:flex;gap:4px}
+.skin .sw i{width:24px;height:24px;border-radius:5px;display:block}
+.skin b{font-size:14px}
+.skin button{padding:8px;border-radius:9px;font-weight:800;font-size:12px;display:flex;justify-content:center;align-items:center;gap:5px;background:rgba(255,255,255,.12)}
+.skin button.buy{background:#ffc94a;color:#2a1d00}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:14px 0}
+.week div{border-radius:8px;padding:8px 2px;text-align:center;background:var(--panel);border:1px solid var(--line);font-size:10px;font-weight:800;color:var(--muted)}
+.week div b{display:block;font-family:var(--f-mono);font-size:12px;color:var(--ink);margin-top:3px}
+.week div.got{background:var(--hit);border-color:var(--hit);color:#fff}
+.week div.got b{color:#fff}
+.week div.today{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.ex{display:flex;gap:4px;margin:8px 0 2px}
+.ex .cell{--t:34px;font-size:17px}
+.lenpick{display:flex;gap:8px;margin-top:12px}
+.lenpick button{flex:1;padding:16px 0;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-family:var(--f-display);font-size:22px}
+.lenpick button span{display:block;font-family:var(--f-body);font-size:11px;font-weight:700;color:var(--muted)}
+.toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--stage);font-weight:800;padding:10px 16px;border-radius:10px;z-index:30;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:rise .2s;max-width:calc(100vw - 32px);text-align:center}
+.toast.award{background:#ffc94a;color:#2a1d00}
+.flash{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font-family:var(--f-display);font-size:34px;color:var(--gold-text);z-index:25;pointer-events:none;animation:flashup 1s ease forwards;text-shadow:0 4px 20px rgba(0,0,0,.35);white-space:nowrap}
+@keyframes flashup{0%{opacity:0;transform:translate(-50%,-30%) scale(.8)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0;transform:translate(-50%,-90%)}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:24;width:100%;height:100%}
+.card{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;max-width:250px;margin:8px auto}
+.card b{aspect-ratio:1;display:grid;place-items:center;border-radius:8px;background:var(--empty);border:2px solid var(--line);font-family:var(--f-mono);font-size:14px;font-weight:700}
+.card b.on{background:var(--hit);border-color:var(--hit);color:#fff}
+.card.p1 b.on{background:var(--near);border-color:var(--near)}
+.card b.new{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);animation:pop .4s}
+.card b.line{box-shadow:0 0 0 3px var(--gold);z-index:1}
+.balls{display:flex;justify-content:center;gap:8px;min-height:44px;align-items:center;margin:4px 0;flex-wrap:wrap}
+.ball{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-weight:700;font-size:14px;background:radial-gradient(circle at 35% 30%,#fff,#e6e3ff 45%,#a9a3e0);color:#1b1745;animation:drop .45s cubic-bezier(.3,1.5,.6,1) both}
+.ball.gold{background:radial-gradient(circle at 35% 30%,#fff6d6,#ffc94a 50%,#c98a00);color:#2a1d00}
+.ball.jinx{background:radial-gradient(circle at 35% 30%,#ffd0d6,#ff5d73 50%,#a3102a);color:#fff}
+@keyframes drop{from{transform:translateY(-28px) scale(.6);opacity:0}}
+.drawmsg{text-align:center;font-weight:800;min-height:22px;color:var(--ink)}
+.row.stealrow .cell{border-style:dashed}
+.chip.steal{background:var(--bad);border-color:var(--bad);color:#fff}
+.vs{display:flex;gap:8px;margin-top:10px}
+.vs button{flex:1;padding:12px 6px;border-radius:12px;background:var(--panel);border:2px solid var(--line);font-weight:800}
+.vs button.on{border-color:var(--gold);background:var(--panel-2)}
+.countdown{font-family:var(--f-mono);font-size:22px;text-align:center;color:var(--ink)}
+@media (max-height:660px){.key{height:44px}.tools{padding:2px 0}.tool{padding:4px}}
+@media (max-height:720px){.card{max-width:205px;gap:4px}.card b{font-size:12px;border-radius:6px}.ball{width:34px;height:34px;font-size:12px}.sheet{padding:16px 16px}.sheet .def{margin:6px 0;font-size:12.5px}.big-word b{width:34px;height:34px;font-size:18px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001s!important;animation-delay:0s!important;transition:none!important}}
+</style>
+
+<div class="app">
+  <div class="marquee" id="marquee" aria-hidden="true"></div>
+
+  <!-- HOME -->
+  <section class="view home" id="home">
+    <div class="profile">
+      <div class="rankbadge" id="rankLvl">1</div>
+      <div class="rankinfo"><b id="rankName">Rookie</b><div class="xpbar"><i id="xpBar" style="width:0"></i></div><small id="xpText">0 / 100 XP</small></div>
+      <span class="coins"><i class="coin"></i><span class="coinval">100</span></span>
+    </div>
+    <div class="brand">
+      <div class="logo" aria-label="Letterlock"><b class="g">L</b><b class="h">E</b><b>T</b><b class="n">T</b><b class="h">E</b><b>R</b><b class="h">L</b><b>O</b><b class="n">C</b><b class="h">K</b></div>
+      <p class="tag">The first letter is free. The rest is on you.</p>
+    </div>
+    <button class="daily-banner" data-mode="daily">
+      <div><h3 id="dailyTitle">Daily Word</h3><p id="dailySub">One word, same for everyone, 6 tries</p></div>
+      <span class="go" id="dailyGo">PLAY</span>
+    </button>
+    <div class="missions" id="missions"></div>
+    <div class="modes">
+      <button class="mode wide" data-mode="gauntlet"><span class="k">Main event</span><h4>Gauntlet</h4><p>Endless levels. Words grow from 4 to 6 letters, the clock is on every guess, and you have 3 lives. Streaks multiply your score. Watch for golden words worth double.</p><span class="best" id="bestG"></span></button>
+      <button class="mode" data-mode="lightning"><span class="k">Speed</span><h4>Lightning</h4><p>120 seconds. Each solve adds 5 seconds back.</p><span class="best" id="bestL"></span></button>
+      <button class="mode" data-mode="duel"><span class="k">Head to head</span><h4>Showdown</h4><p>Show rules against the computer or a friend. Steal words, draw balls, win the Jackpot.</p><span class="best" id="bestD"></span></button>
+      <button class="mode wide" data-mode="practice"><span class="k">No pressure</span><h4>Practice</h4><p>Pick 4, 5 or 6 letters. No timer, and every hint is free.</p><span class="best" id="bestP"></span></button>
+    </div>
+    <div class="foot">
+      <button data-open="help">How to play</button>
+      <button data-open="book">Word book</button>
+      <button data-open="shop">Themes</button>
+      <button data-open="stats">Stats</button>
+      <button data-open="awards">Awards</button>
+      <button data-open="settings">Settings</button>
+    </div>
+    <p class="loading" id="loading">Loading dictionary…</p>
+  </section>
+
+  <!-- GAME -->
+  <section class="view" id="game" hidden>
+    <div class="topbar">
+      <button class="iconbtn" id="quit" aria-label="Leave game"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="hud"><span class="m" id="hudMode">Gauntlet</span><span class="s" id="hudScore">0</span></div>
+      <span class="coins" id="gameCoins"><i class="coin"></i><span class="coinval">100</span></span>
+      <button class="iconbtn" data-open="help" aria-label="How to play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></svg></button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="clue" id="clue" hidden></div>
+    <div class="boardwrap"><div class="board" id="board"></div></div>
+    <div class="timer" id="timer"><i id="timerBar"></i></div>
+    <div class="tools" id="tools"></div>
+    <div class="kb" id="kb"></div>
+  </section>
+</div>
+<canvas id="confetti" hidden></canvas>
+<div id="overlay"></div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NATIVE=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()?window.Capacitor.Plugins:null;
+
+/* ---------- storage ---------- */
+const store={get(k,d){try{const v=localStorage.getItem('letterlock:'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('letterlock:'+k,JSON.stringify(v))}catch(e){}}};
+function merge(def,v){if(!v||typeof v!=='object'||Array.isArray(def))return v===undefined?def:v;const o={...def};for(const k in v)o[k]=(k in def&&def[k]&&typeof def[k]==='object'&&!Array.isArray(def[k]))?merge(def[k],v[k]):v[k];return o}
+const DEF_SET={timer:20,hard:false,cb:false,sound:true,haptics:true,strict:false,duelRounds:6,duelLen:'5',duelVs:'cpu',cpuLvl:'normal',p1:'Player 1',p2:'Player 2'};
+const DEF_STATS={solved:0,firstTry:0,hardSolved:0,golden:0,gauntlet:{played:0,best:0,bestLevel:0,bestStreak:0},lightning:{played:0,best:0,bestWords:0},duel:{played:0,won:0,jackpots:0,bestJackpot:0},practice:{solved:0},daily:{played:0,won:0,streak:0,maxStreak:0,last:null,dist:[0,0,0,0,0,0],results:{},cur:{date:null,words:[],hinted:{},clue:0,hints:0}}};
+const DEF_PROF={coins:100,xp:0,lastLogin:null,loginStreak:0,skin:'stage',owned:['stage'],book:{},missions:{date:null,list:[]},hintsUsed:0};
+let SET=merge(DEF_SET,store.get('settings',{}));
+let STATS=merge(DEF_STATS,store.get('stats',{}));
+let PROF=merge(DEF_PROF,store.get('profile',{}));
+let AWARDS=store.get('awards',{});
+const saveStats=()=>store.set('stats',STATS), saveSet=()=>store.set('settings',SET), saveProf=()=>store.set('profile',PROF);
+function applyLook(){document.documentElement.classList.toggle('cb',SET.cb);if(PROF.skin==='stage')delete document.documentElement.dataset.skin;else document.documentElement.dataset.skin=PROF.skin}
+applyLook();
+
+/* ---------- words ---------- */
+const FALLBACK={4:'game time word play book cake fish hand home king lamp moon nest park rain ship star tree wind gold blue rock song farm city bell road snow fire milk door',5:'apple brave chair dance eagle flame grape heart light money night ocean piano queen river smile table under voice water youth zebra plant stone train world sound grand',6:'animal bridge castle dinner engine family garden honest island jungle kitten letter market nature orange planet rocket silver tomato window yellow winter summer'};
+let WORDS={ans:{},valid:{},defs:{}},LOADED=false,LOADFAIL=false;
+for(const n of [4,5,6]){WORDS.ans[n]=FALLBACK[n].split(' ');WORDS.valid[n]=new Set(WORDS.ans[n])}
+fetch('words.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
+  for(const n of [4,5,6]){WORDS.ans[n]=d.answers[n];WORDS.valid[n]=new Set(d.valid[n]);d.answers[n].forEach(w=>WORDS.valid[n].add(w))}
+  WORDS.defs=d.defs||{};LOADED=true;$('#loading').hidden=true;refreshHome();
+}).catch(()=>{LOADFAIL=true;$('#loading').textContent='Offline word list in use. Some words may not be accepted.'});
+const used=new Set();
+function pick(n,rank){const L=WORDS.ans[n];const max=Math.min(L.length,rank||L.length);for(let i=0;i<40;i++){const w=L[Math.floor(Math.random()*max)];if(!used.has(w)){used.add(w);return w}}return L[Math.floor(Math.random()*max)]}
+function todayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function yesterdayKey(){const y=new Date();y.setDate(y.getDate()-1);return todayKey(y)}
+function dayNumber(){const a=new Date(2026,0,1),b=new Date();b.setHours(0,0,0,0);return Math.round((b-a)/864e5)+1}
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function dailyWord(){const L=WORDS.ans[5];const pool=L.slice(0,Math.min(900,L.length));return pool[hash('letterlock'+todayKey())%pool.length]}
+// clue text wraps give-away words in {braces}: hidden while guessing, shown once the word is over
+const unmask=t=>t.replace(/\{([^}]*)\}/g,'$1'), hide=t=>t.replace(/\{[^}]*\}/g,'_____');
+function defHTML(w){const d=WORDS.defs[w];if(!d)return '';return '<div class="def"><i>'+d[0]+'</i>'+esc(unmask(d[1]))+(d[2]?'<em>“'+esc(unmask(d[2]))+'”</em>':'')+'</div>'}
+
+/* ---------- sound & haptics ---------- */
+let AC=null;
+function tone(f,d=.08,type='sine',v=.05,when=0){if(!SET.sound)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+when,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d+.03)}catch(e){}}
+const sfx={
+  key(){tone(520,.04,'triangle',.03)},
+  hit(i){tone(560+i*90,.14,'triangle',.05)},near(){tone(420,.12,'sine',.045)},miss(){tone(170,.1,'sine',.04)},
+  win(){[523,659,784,1047].forEach((f,i)=>tone(f,.22,'triangle',.06,i*.09))},
+  gold(){[784,988,1175,1568,2093].forEach((f,i)=>tone(f,.25,'triangle',.05,i*.07))},
+  lose(){[330,262,196].forEach((f,i)=>tone(f,.28,'sawtooth',.03,i*.14))},
+  bad(){tone(140,.18,'square',.03)},tick(){tone(880,.05,'square',.02)},
+  coin(){tone(1320,.08,'square',.025);tone(1760,.12,'square',.025,.07)},
+  power(){[700,950,1200].forEach((f,i)=>tone(f,.1,'sine',.05,i*.05))}
+};
+function buzz(p){if(!SET.haptics)return;try{if(NATIVE&&NATIVE.Haptics){NATIVE.Haptics.vibrate({duration:[].concat(p).reduce((a,b)=>a+b,0)});return}navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
+function tap(){if(SET.haptics&&NATIVE&&NATIVE.Haptics){try{NATIVE.Haptics.impact({style:'LIGHT'})}catch(e){}}}
+
+/* ---------- ui helpers ---------- */
+const mq=$('#marquee');for(let i=0;i<34;i++)mq.appendChild(document.createElement('i'));
+let toastT;
+function toast(msg,cls=''){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast '+cls;t.textContent=msg;document.body.appendChild(t);clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),cls?2800:1700)}
+function flash(msg){const f=document.createElement('div');f.className='flash';f.textContent=msg;document.body.appendChild(f);setTimeout(()=>f.remove(),1050)}
+let modalHandlers=null;
+function modal(html,handlers={}){$('#overlay').innerHTML='<div class="scrim"><div class="sheet" role="dialog" aria-modal="true">'+html+'</div></div>';modalHandlers=handlers;const p=$('#overlay .btn.primary')||$('#overlay button');p&&p.focus({preventScroll:true})}
+function closeModal(){$('#overlay').innerHTML='';modalHandlers=null}
+const modalOpen=()=>!!$('#overlay .scrim');
+$('#overlay').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b){const fn=modalHandlers&&modalHandlers[b.dataset.act];if(fn)fn(b);else if(b.dataset.act==='close')closeModal();return}
+  if(e.target.classList.contains('scrim')&&modalHandlers&&!modalHandlers.locked)closeModal();
+});
+const X='<button class="iconbtn x" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+const lookup=w=>'https://en.wiktionary.org/wiki/'+encodeURIComponent(w);
+const COIN='<i class="coin"></i>';
+const ICON={
+  clue:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 0 2 1h12v-3M8 8h6M8 11h4"/></svg>',
+  reveal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>',
+  sweep:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20h16M7 16l9-12 3 2-8 12M7 16l-2 4M7 16l4 2"/></svg>',
+  freeze:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v20M4 6l16 12M20 6L4 18M9 3l3 3 3-3M9 21l3-3 3 3"/></svg>',
+  skip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l9 7-9 7zM18 5v14"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>'
+};
+
+/* ---------- confetti ---------- */
+function confetti(n=90){
+  if(reduced)return;const c=$('#confetti');c.hidden=false;const ctx=c.getContext('2d');const W=c.width=innerWidth*devicePixelRatio,H=c.height=innerHeight*devicePixelRatio;
+  const cs=getComputedStyle(document.documentElement);const cols=['--gold','--hit','--near','--ink'].map(v=>cs.getPropertyValue(v).trim());
+  const P=[...Array(n)].map(()=>({x:W/2+(Math.random()-.5)*W*.3,y:H*.42,vx:(Math.random()-.5)*W*.022,vy:-Math.random()*H*.022-H*.006,r:Math.random()*Math.PI,s:(4+Math.random()*5)*devicePixelRatio,c:cols[Math.floor(Math.random()*cols.length)]}));
+  const t0=performance.now();
+  (function f(t){const k=(t-t0)/1400;ctx.clearRect(0,0,W,H);if(k>=1){c.hidden=true;return}
+    for(const p of P){p.x+=p.vx;p.y+=p.vy;p.vy+=H*.0009;p.r+=.2;ctx.save();ctx.globalAlpha=1-k;ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore()}
+    requestAnimationFrame(f)})(t0);
+}
+
+/* ---------- coins, XP, ranks ---------- */
+function updateCoins(bump){document.querySelectorAll('.coinval').forEach(e=>e.textContent=PROF.coins.toLocaleString());if(bump)document.querySelectorAll('.coins').forEach(e=>{e.classList.remove('bump');void e.offsetWidth;e.classList.add('bump')})}
+function addCoins(n){PROF.coins=Math.max(0,PROF.coins+n);saveProf();updateCoins(n>0);if(n>0)sfx.coin()}
+const RANKS=[[1,'Rookie'],[3,'Speller'],[6,'Wordsmith'],[10,'Lexicographer'],[15,'Word Wizard'],[20,'Lexicon Legend']];
+const rankName=l=>RANKS.filter(r=>l>=r[0]).pop()[1];
+function rankOf(xp){let lvl=1,need=100,acc=0;while(xp>=acc+need){acc+=need;lvl++;need=100+50*(lvl-1)}return{lvl,into:xp-acc,need}}
+function addXP(n){const before=rankOf(PROF.xp).lvl;PROF.xp+=n;saveProf();const after=rankOf(PROF.xp).lvl;if(after>before){setTimeout(()=>{toast('Rank up! Level '+after+': '+rankName(after)+'  +50 coins','award');addCoins(50)},1200);if(after>=10)award('rank10')}}
+
+/* ---------- awards ---------- */
+const AWARD_LIST=[
+ ['first','Opening act','Solve your first word'],
+ ['oneshot','Mind reader','Solve a word on the first guess'],
+ ['clutch','Buzzer beater','Solve on the final row'],
+ ['quick','Quick draw','Solve a word within 6 seconds'],
+ ['streak5','On a roll','5-word streak in Gauntlet'],
+ ['streak10','Unstoppable','10-word streak in Gauntlet'],
+ ['level10','Deep run','Reach level 10 in Gauntlet'],
+ ['score1k','Four figures','Score 1,000 in one Gauntlet run'],
+ ['pure','No lifelines','Reach level 6 without hints'],
+ ['blitz8','Lightning rod','Solve 8 words in one Lightning round'],
+ ['daily3','Regular','Win the daily 3 days in a row'],
+ ['daily7','Devoted','Win the daily 7 days in a row'],
+ ['six2','Big brain','Solve a 6-letter word in 2 guesses'],
+ ['duel','Champion','Win a Showdown'],
+ ['steal','Pickpocket','Steal a word in a Showdown'],
+ ['line','Full line','Fill a line on your lock card'],
+ ['jackpot','Jackpot!','Fill a line in the Jackpot round'],
+ ['second','Second wind','Solve on a Gauntlet last-chance row'],
+ ['hard','Hard-liner','Solve 10 words with hard mode on'],
+ ['century','Centurion','Solve 100 words in total'],
+ ['golden','Golden touch','Solve a golden word'],
+ ['book50','Collector','Collect 50 words in your word book'],
+ ['missions','Mission accomplished','Finish all 3 missions in one day'],
+ ['rank10','Lexicographer','Reach rank level 10'],
+ ['stylist','New look','Unlock a theme']
+];
+function award(id){if(AWARDS[id])return;AWARDS[id]=Date.now();store.set('awards',AWARDS);const a=AWARD_LIST.find(x=>x[0]===id);if(a)setTimeout(()=>{toast('Award unlocked: '+a[1]+'  +25 coins','award');addCoins(25)},700)}
+
+/* ---------- daily missions ---------- */
+const MISSIONS=[
+ {id:'solve5',t:'Solve 5 words',goal:5,ev:'solve',reward:40},
+ {id:'solve10',t:'Solve 10 words',goal:10,ev:'solve',reward:70},
+ {id:'fast',t:'Solve 2 words in 3 guesses or fewer',goal:2,ev:'solve',test:e=>e.row<=2,reward:50},
+ {id:'nohint',t:'Solve 3 words without hints',goal:3,ev:'solve',test:e=>!e.hinted,reward:50},
+ {id:'six',t:'Solve 2 six-letter words',goal:2,ev:'solve',test:e=>e.len===6,reward:50},
+ {id:'golden',t:'Solve a golden word',goal:1,ev:'solve',test:e=>e.golden,reward:60},
+ {id:'light',t:'Solve 6 words in one Lightning round',goal:6,ev:'lightning',val:e=>e.solved,reward:60},
+ {id:'gaunt',t:'Reach level 6 in Gauntlet',goal:6,ev:'level',val:e=>e.level,reward:60},
+ {id:'streak',t:'Build a 4-word Gauntlet streak',goal:4,ev:'streak',val:e=>e.n,reward:60},
+ {id:'daily',t:'Win today’s Daily Word',goal:1,ev:'dailywin',reward:40},
+ {id:'duel',t:'Finish a Showdown',goal:1,ev:'duelend',reward:30},
+ {id:'line',t:'Fill a line on a lock card',goal:1,ev:'line',reward:50},
+ {id:'clue',t:'Solve a word after reading its clue',goal:1,ev:'solve',test:e=>e.clued,reward:30}
+];
+function missionsToday(){
+  const k=todayKey();
+  if(PROF.missions.date!==k){const pool=MISSIONS.map(m=>m.id);let h=hash('missions'+k);const pickd=[];
+    while(pickd.length<3){const id=pool.splice(h%pool.length,1)[0];if(!(id==='solve10'&&pickd.includes('solve5'))&&!(id==='solve5'&&pickd.includes('solve10')))pickd.push(id);h=Math.imul(h^(h>>>13),2654435761)>>>0}
+    PROF.missions={date:k,list:pickd.map(id=>({id,p:0,claimed:false}))};saveProf()}
+  return PROF.missions.list;
+}
+function emit(ev,e={}){
+  for(const m of missionsToday()){const d=MISSIONS.find(x=>x.id===m.id);if(!d||d.ev!==ev||m.p>=d.goal)continue;if(d.test&&!d.test(e))continue;
+    m.p=d.val?Math.max(m.p,Math.min(d.goal,d.val(e))):Math.min(d.goal,m.p+1);
+    if(m.p>=d.goal)setTimeout(()=>toast('Mission complete: '+d.t+'. Claim it on the home screen.','award'),1400);
+  }
+  saveProf();
+}
+function renderMissions(){
+  const L=missionsToday();const t=new Date(),m=new Date(t);m.setHours(24,0,0,0);const hrs=Math.ceil((m-t)/36e5);
+  $('#missions').innerHTML='<header><h4>Today’s missions</h4><small>New in '+hrs+'h</small></header>'+L.map((x,i)=>{const d=MISSIONS.find(y=>y.id===x.id);const done=x.p>=d.goal;
+    return '<div class="mission'+(x.claimed?' done':'')+'"><span>'+d.t+'</span><div class="bar"><i style="width:'+(x.p/d.goal*100)+'%"></i></div>'+
+    (x.claimed?'<span class="rw done">Claimed</span>':done?'<button class="rw claim" data-claim="'+i+'">'+COIN+'+'+d.reward+' Claim</button>':'<span class="rw">'+COIN+d.reward+'</span>')+'</div>'}).join('');
+}
+$('#missions').addEventListener('click',e=>{const b=e.target.closest('[data-claim]');if(!b)return;const L=missionsToday();const x=L[+b.dataset.claim];const d=MISSIONS.find(y=>y.id===x.id);if(x.claimed||x.p<d.goal)return;
+  x.claimed=true;saveProf();addCoins(d.reward);addXP(Math.round(d.reward/2));flash('+'+d.reward+' coins');confetti(60);if(L.every(m=>m.claimed))award('missions');refreshHome()});
+
+/* ---------- daily login bonus ---------- */
+function loginBonus(silent){
+  const k=todayKey();if(PROF.lastLogin===k)return false;
+  PROF.loginStreak=PROF.lastLogin===yesterdayKey()?PROF.loginStreak+1:1;PROF.lastLogin=k;
+  const day=((PROF.loginStreak-1)%7)+1;const amt=day===7?100:10+day*10;saveProf();
+  if(silent){addCoins(amt);toast('Daily bonus: +'+amt+' coins','award');return true}
+  const days=[1,2,3,4,5,6,7].map(d=>'<div class="'+(d<day?'got':d===day?'got today':'')+'">DAY '+d+'<b>'+(d===7?100:10+d*10)+'</b></div>').join('');
+  modal('<h2 class="center">Daily bonus</h2><p class="center">'+(PROF.loginStreak>1?'Day '+PROF.loginStreak+' in a row. Come back tomorrow for more.':'Play every day to grow your bonus. Day 7 pays 100.')+'</p><div class="week">'+days+'</div><div class="btns"><button class="btn primary" data-act="take">Collect '+amt+' coins</button></div>',{take:()=>{closeModal();addCoins(amt);flash('+'+amt);confetti(50)},locked:true});
+  return true;
+}
+
+/* ---------- themes ---------- */
+const SKINS=[
+ {id:'stage',name:'Stage',price:0,c:['#110e2b','#17b890','#ff8a4c','#ffc94a']},
+ {id:'ocean',name:'Deep Sea',price:150,c:['#06222b','#3ddc97','#ff6b6b','#ffd166']},
+ {id:'sunset',name:'Sunset Strip',price:250,c:['#2a0f1f','#3fc1a5','#ff5e8a','#ffb347']},
+ {id:'daylight',name:'Daylight',price:300,c:['#eceef6','#12a27a','#ef7438','#f5b700']}
+];
+
+/* ---------- game state ---------- */
+let G=null;   // run state
+let R=null;   // current word round
+let busy=false;
+let RUN=0;   // bumps whenever a run starts or ends, so delayed callbacks from an old run do nothing
+function later(fn,ms){const id=RUN;return setTimeout(()=>{if(id===RUN&&G)fn()},ms)}
+const MODE_NAME={gauntlet:'Gauntlet',daily:'Daily Word',lightning:'Lightning',duel:'Showdown',practice:'Practice',jackpot:'Jackpot'};
+const PRAISE=['Genius!','Brilliant!','Superb!','Great!','Nice!','Phew!'];
+
+function show(view){$('#home').hidden=view!=='home';$('#game').hidden=view!=='game';if(view==='home'){$('#home').scrollTop=0;refreshHome()}}
+
+function startMode(mode,opt={}){
+  if(!LOADED&&!LOADFAIL)return toast('Loading the dictionary. One moment…');
+  if(mode==='daily'){if(STATS.daily.results[todayKey()]){dailyResult(true);return}if(!LOADED)return toast('The Daily Word needs the full dictionary. Check your connection.')}
+  if(mode==='practice'&&!opt.len){return pickLength()}
+  if(mode==='duel'&&!opt.ready){return duelSetup()}
+  used.clear();RUN++;closeModal();
+  G={mode,score:0,level:1,lives:3,streak:0,bestStreak:0,solvedCount:0,history:[],powers:{},usedHint:false,len:opt.len||5};
+  if(mode==='gauntlet')G.powers={clue:1,reveal:1,sweep:1,freeze:1};
+  if(mode==='lightning'){G.clock=120;G.clockMax=120}
+  if(mode==='jackpot'){G.clock=90;G.clockMax=90;G.card=newCard(13,2,0);G.pot=0;G.lines=0}
+  if(mode==='duel'){G.scores=[0,0];G.round=0;G.rounds=SET.duelRounds;G.vs=SET.duelVs;G.cpu=SET.cpuLvl;G.tiebreak=false;
+    G.names=G.vs==='cpu'?[SET.p1&&SET.p1!=='Player 1'?SET.p1:'You','Computer']:[SET.p1||'Player 1',SET.p2||'Player 2'];G.cards=[newCard(15,2,1),newCard(15,2,1)]}
+  show('game');nextWord();
+  if(mode==='daily')restoreDaily();
+}
+
+function lenForLevel(l){if(l<=2)return 4;if(l<=6)return 5;return l%4===0?5:6}
+function nextWord(){
+  closeModal();
+  let n=5,tries=6,ans;
+  if(G.mode==='gauntlet'){n=lenForLevel(G.level);tries=5;ans=pick(n,250+G.level*70)}
+  else if(G.mode==='daily'){ans=dailyWord();tries=6}
+  else if(G.mode==='lightning'){tries=5;ans=pick(5,700)}
+  else if(G.mode==='duel'){n=G.tiebreak?5:SET.duelLen==='mix'?[5,5,6][G.round%3]:+SET.duelLen||5;tries=6;ans=pick(n,800);G.turn=G.round%2}
+  else if(G.mode==='jackpot'){tries=5;ans=pick(5,700)}
+  else if(G.mode==='practice'){n=G.len;ans=pick(n,1000)}
+  n=ans.length;
+  const golden=['gauntlet','lightning','practice'].includes(G.mode)&&(G.level>1||G.mode!=='gauntlet')&&Math.random()<.12;
+  R={ans,n,tries,rows:[],typed:'',known:{0:ans[0]},hinted:{},keys:{},swept:new Set(),start:performance.now(),done:false,golden,clue:0,usedHint:false,hints:0,steal:false,lastChance:false};
+  buildBoard();buildKeyboard();renderClue();renderTools();renderHUD();
+  if(golden){flash('★ Golden word');sfx.gold()}
+  if(G.mode==='duel'&&G.vs==='cpu')toast(G.turn?'Computer starts this word':'You start this word');
+  resetTurnTimer();cpuMaybe();
+}
+
+/* ---------- board ---------- */
+function buildBoard(){
+  const b=$('#board');b.style.setProperty('--len',R.n);b.innerHTML='';b.classList.toggle('golden',R.golden);
+  for(let r=0;r<R.tries;r++)addRow(G.mode==='duel'&&!G.tiebreak&&r===R.tries-1);
+  fitBoard();paintActive();
+}
+function addRow(steal){const row=document.createElement('div');row.className='row'+(steal?' stealrow':'');for(let i=0;i<R.n;i++){const c=document.createElement('div');c.className='cell';row.appendChild(c)}$('#board').appendChild(row)}
+function fitBoard(){if(!R||$('#game').hidden)return;const w=$('.boardwrap');const W=w.clientWidth-28,H=w.clientHeight-20;const t=Math.floor(Math.max(26,Math.min(62,(W-6*(R.n-1))/R.n,(H-6*(R.tries-1))/R.tries)));$('#board').style.setProperty('--t',t+'px')}
+addEventListener('resize',fitBoard);
+function rowEl(i){return $('#board').children[i]}
+function paintActive(){
+  const i=R.rows.length;const row=rowEl(i);if(!row)return;
+  [...$('#board').children].forEach(r=>r.classList.remove('active'));
+  row.classList.add('active');
+  const cells=row.children;
+  for(let j=0;j<R.n;j++){
+    const c=cells[j];c.className='cell';c.textContent='';
+    if(j===0){c.textContent=R.ans[0];c.classList.add('lock');continue}
+    const t=R.typed[j-1];
+    if(t){c.textContent=t;c.classList.add('typed')}
+    else if(R.known[j]){c.textContent=R.known[j];c.classList.add('ghost');if(R.hinted[j])c.classList.add('hint')}
+    if(j===R.typed.length+1)c.classList.add('cur');
+  }
+}
+function evaluate(g,a){const n=a.length,r=Array(n).fill('miss'),cnt={};for(let i=0;i<n;i++){if(g[i]===a[i])r[i]='hit';else cnt[a[i]]=(cnt[a[i]]||0)+1}for(let i=0;i<n;i++){if(r[i]!=='hit'&&cnt[g[i]]>0){r[i]='near';cnt[g[i]]--}}return r}
+const RANK={miss:1,near:2,hit:3};
+
+/* ---------- keyboard ---------- */
+function buildKeyboard(){
+  const rows=['qwertyuiop','asdfghjkl','>zxcvbnm<'];
+  $('#kb').innerHTML=rows.map((r,ri)=>'<div class="kr">'+(ri===1?'<span class="spacer"></span>':'')+[...r].map(k=>k==='>'?'<button class="key wide" data-k="Enter">ENTER</button>':k==='<'?'<button class="key wide" data-k="Backspace" aria-label="Delete">'+ICON.back+'</button>':'<button class="key" data-k="'+k+'">'+k+'</button>').join('')+(ri===1?'<span class="spacer"></span>':'')+'</div>').join('');
+}
+function paintKeys(){document.querySelectorAll('#kb .key[data-k]').forEach(b=>{const k=b.dataset.k;if(k.length>1)return;b.classList.remove('hit','near','miss','swept');if(R.keys[k])b.classList.add(R.keys[k]);else if(R.swept.has(k))b.classList.add('swept')})}
+$('#kb').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)press(b.dataset.k)});
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(modalOpen()){if(e.key==='Enter'){const p=$('#overlay .btn.primary');if(p&&document.activeElement.tagName!=='INPUT'){e.preventDefault();p.click()}}else if(e.key==='Escape'&&modalHandlers&&!modalHandlers.locked)closeModal();return}
+  if($('#game').hidden)return;
+  if(e.key==='Enter'||e.key==='Backspace'||/^[a-zA-Z]$/.test(e.key)){e.preventDefault();press(e.key.length===1?e.key.toLowerCase():e.key)}
+});
+function press(k){
+  if(busy||!R||R.done||modalOpen()||isCpu())return;
+  if(k==='Enter')return submit();
+  if(k==='Backspace'){if(R.typed){R.typed=R.typed.slice(0,-1);paintActive()}return}
+  if(R.typed.length>=R.n-1)return;
+  R.typed+=k;sfx.key();tap();paintActive();
+}
+
+/* ---------- guessing ---------- */
+function shakeRow(msg){const r=rowEl(R.rows.length);r.classList.remove('shake');void r.offsetWidth;r.classList.add('shake');toast(msg);sfx.bad();buzz(60)}
+function hardCheck(g){
+  for(const row of R.rows){if(!row.res)continue;
+    for(let i=0;i<R.n;i++)if(row.res[i]==='hit'&&g[i]!==row.word[i])return 'Position '+(i+1)+' must be '+row.word[i].toUpperCase();
+    const need={};row.res.forEach((s,i)=>{if(s==='near'||s==='hit')need[row.word[i]]=(need[row.word[i]]||0)+1});
+    for(const ch in need){const have=[...g].filter(x=>x===ch).length;if(have<need[ch])return 'Guess must contain '+ch.toUpperCase()}
+  }
+  for(const p in R.hinted)if(g[p]!==R.ans[p])return 'Position '+(+p+1)+' must be '+R.ans[p].toUpperCase();
+  return null;
+}
+function submit(){
+  if(R.typed.length<R.n-1)return shakeRow('Not enough letters');
+  const g=R.ans[0]+R.typed;
+  if(!WORDS.valid[R.n].has(g)){
+    if(G.mode==='duel'){shakeRow('Not a word. '+(G.tiebreak||R.steal?'Turn over.':'Control passes.'));return burnRow('NOPE')}
+    if(SET.strict){shakeRow('Not in word list. Turn lost.');return burnRow('NOPE')}
+    return shakeRow('Not in word list');
+  }
+  if(SET.hard&&G.mode!=='duel'){const m=hardCheck(g);if(m)return shakeRow(m)}
+  const res=evaluate(g,R.ans);
+  const idx=R.rows.length;R.rows.push({word:g,res,who:G.mode==='duel'?G.turn:null});R.typed='';
+  if(G.mode==='daily')saveDaily();
+  revealRow(idx,()=>{
+    res.forEach((s,i)=>{const k=g[i];if(!R.keys[k]||RANK[s]>RANK[R.keys[k]])R.keys[k]=s;if(s==='hit')R.known[i]=k});
+    paintKeys();
+    if(res.every(s=>s==='hit'))return solved(idx);
+    if(G.mode==='duel')return duelAfterMiss(false);
+    if(R.rows.length>=R.tries)return failed();
+    paintActive();renderTools();resetTurnTimer();
+  });
+}
+function revealRow(idx,done){
+  busy=true;stopTurnTimer();
+  const row=rowEl(idx),{word,res}=R.rows[idx];row.classList.remove('active');
+  [...row.children].forEach((c,i)=>{c.className='cell';c.textContent=word[i];c.style.setProperty('--d',(reduced?0:i*.2)+'s');void c.offsetWidth;c.classList.add(res[i],'flip');
+    setTimeout(()=>{res[i]==='hit'?sfx.hit(i):res[i]==='near'?sfx.near():sfx.miss()},reduced?0:i*200+250)});
+  if(G.mode==='duel'){const d=document.createElement('span');d.className='who';d.style.background=R.rows[idx].who?'var(--near)':'var(--hit)';row.appendChild(d)}
+  const id=RUN;setTimeout(()=>{busy=false;if(id===RUN&&G&&R)done()},reduced?50:R.n*200+380);
+}
+function burnRow(label){
+  const idx=R.rows.length;R.rows.push({word:'',res:null,who:G.mode==='duel'?G.turn:null});R.typed='';
+  const row=rowEl(idx);row.classList.remove('active');row.classList.add('timeout');
+  [...row.children].forEach((c,i)=>{c.className='cell';c.textContent=label[i]||''});
+  if(G.mode==='daily')saveDaily();
+  if(G.mode==='duel')return duelAfterMiss(true);
+  if(R.rows.length>=R.tries)return failed();
+  paintActive();renderTools();resetTurnTimer();
+}
+function bonusLetter(){const unknown=[...Array(R.n).keys()].filter(i=>!R.known[i]);if(unknown.length<=1)return false;const p=unknown[Math.floor(Math.random()*unknown.length)];R.known[p]=R.ans[p];R.hinted[p]=1;return true}
+
+/* ---------- timers ---------- */
+let tickH=null,lastTick=0;
+function timerSeconds(){if(G.mode==='gauntlet'||G.mode==='duel')return SET.timer||0;return 0}
+function resetTurnTimer(){
+  if(G.clockMax){$('#timer').hidden=false;startTick();return}
+  const t=timerSeconds();
+  if(!t){$('#timer').hidden=true;stopTurnTimer();return}
+  $('#timer').hidden=false;G.turnLeft=t;G.turnMax=t;startTick();
+}
+function startTick(){stopTurnTimer();lastTick=performance.now();tickH=setInterval(tick,100);paintTimer()}
+function stopTurnTimer(){clearInterval(tickH);tickH=null}
+function tick(){
+  const now=performance.now(),dt=(now-lastTick)/1000;lastTick=now;
+  if(modalOpen()||document.hidden||busy||!R||R.done)return;
+  if(G.frozen>0){G.frozen-=dt;paintTimer();return}
+  if(G.clockMax){const before=G.clock;G.clock-=dt;if(Math.ceil(G.clock)<Math.ceil(before)&&G.clock<10&&G.clock>0)sfx.tick();paintTimer();renderHUD();if(G.clock<=0){G.clock=0;G.mode==='jackpot'?endJackpot():endLightning()}return}
+  const before=G.turnLeft;G.turnLeft-=dt;
+  if(Math.ceil(G.turnLeft)<Math.ceil(before)&&G.turnLeft<5&&G.turnLeft>0)sfx.tick();
+  paintTimer();
+  if(G.turnLeft<=0){sfx.bad();buzz([40,40,40]);toast('Time!');burnRow('TIME')}
+}
+function paintTimer(){
+  let f,low;
+  if(G.clockMax){f=Math.max(0,Math.min(1,G.clock/G.clockMax));low=G.clock<10}else{f=Math.max(0,G.turnLeft/G.turnMax);low=G.turnLeft<5}
+  $('#timerBar').style.transform='scaleX('+f+')';$('#timer').classList.toggle('low',low&&!(G.frozen>0));
+  $('#timerBar').style.background=G.frozen>0?'#7fd3ff':'';
+}
+
+/* ---------- HUD ---------- */
+function renderHUD(){
+  $('#hudMode').textContent=MODE_NAME[G.mode];
+  let h='';
+  if(G.mode==='gauntlet'){
+    $('#hudScore').textContent=G.score.toLocaleString();
+    const mult=1+Math.min(G.streak,8)*.25;
+    h='<span class="chip">Level '+G.level+'</span><span class="chip">'+R.n+' letters</span><span class="chip lives" aria-label="'+G.lives+' lives">'+'♥'.repeat(G.lives)+'<span style="opacity:.25">'+'♥'.repeat(3-G.lives)+'</span></span>'+(G.streak?'<span class="chip gold">×'+(+mult.toFixed(2))+' streak</span>':'')+(R.lastChance?'<span class="chip steal">Last chance</span>':'');
+  }else if(G.mode==='lightning'){
+    $('#hudScore').textContent=Math.max(0,Math.ceil(G.clock))+'s';
+    h='<span class="chip">'+G.solvedCount+' solved</span><span class="chip">'+G.score+' pts</span>';
+  }else if(G.mode==='duel'){
+    $('#hudScore').textContent=G.scores[0]+' – '+G.scores[1];
+    h=G.names.map((nm,i)=>'<span class="chip p'+i+(G.turn===i?' on':'')+'"><span>'+(G.turn===i?'▶ ':'')+esc(nm)+'</span></span>').join('')+'<span class="chip">'+(G.tiebreak?'Sudden death':'Word '+(G.round+1)+'/'+G.rounds)+'</span>'+(R.steal?'<span class="chip steal">Steal!</span>':'');
+  }else if(G.mode==='jackpot'){
+    $('#hudScore').textContent=Math.max(0,Math.ceil(G.clock))+'s';
+    h='<span class="chip gold">'+(G.pot?'Jackpot '+G.pot+' · next line ×2':'First line pays 50')+'</span><span class="chip">'+G.lines+(G.lines===1?' line':' lines')+'</span><span class="chip">'+G.card.marked.filter(x=>!x).length+' open</span>';
+  }else if(G.mode==='daily'){
+    $('#hudScore').textContent='#'+dayNumber();h='<span class="chip">5 letters · 6 tries</span>';
+  }else{
+    $('#hudScore').textContent=STATS.practice.solved+' solved';h='<span class="chip">'+R.n+' letters</span><span class="chip">Hints free</span>';
+  }
+  if(R&&R.golden)h+='<span class="chip gold">★ Golden ×2</span>';
+  $('#status').innerHTML=h;
+}
+
+/* ---------- hints ---------- */
+const COST={clue:15,reveal:30,sweep:20,freeze:20};
+const HINT_NAME={clue:'Clue',reveal:'Reveal',sweep:'Sweep',freeze:'Freeze'};
+function toolsFor(){
+  const hasDef=!!WORDS.defs[R.ans];const t=[];
+  if(hasDef)t.push('clue');
+  if(G.mode==='gauntlet'){t.push('reveal','sweep');if(SET.timer)t.push('freeze')}
+  else if(G.mode==='practice')t.push('reveal','sweep');
+  else if(G.mode==='daily')t.push('reveal');
+  else if(G.mode==='lightning'||G.mode==='jackpot')t.push('skip');
+  return t;
+}
+function maxClue(){const d=WORDS.defs[R.ans];return d?(d[2]?2:1):0}
+function price(p){if(G.mode==='practice'||G.mode==='duel')return 'free';if(G.powers[p]>0)return 'token';return COST[p]}
+function blocked(p){
+  if(R.done)return 'done';
+  if(p==='clue'){if(R.clue>=maxClue())return 'used';if(G.mode==='duel'&&R.rows.length<2)return 'After 2 guesses'}
+  if(p==='reveal'&&[...Array(R.n).keys()].filter(i=>!R.known[i]).length<=1)return 'used';
+  if(p==='sweep'&&![...'abcdefghijklmnopqrstuvwxyz'].some(c=>!R.ans.includes(c)&&!R.keys[c]&&!R.swept.has(c)))return 'used';
+  if(p==='freeze'&&G.frozen>0)return 'used';
+  return null;
+}
+function renderTools(){
+  const t=$('#tools');const list=toolsFor();t.style.setProperty('--n',list.length);
+  t.innerHTML=list.map(p=>{
+    if(p==='skip')return '<button class="tool" data-p="skip"><span class="lb">'+ICON.skip+'Skip</span><span class="cost">−3s</span></button>';
+    const pr=price(p),bl=blocked(p);
+    const label=p==='clue'&&R.clue===1?'Example':HINT_NAME[p];
+    const cost=bl&&bl!=='used'&&bl!=='done'?bl:pr==='free'?'Free':pr==='token'?'×'+G.powers[p]+' free':COIN+pr;
+    return '<button class="tool" data-p="'+p+'"'+(bl?' disabled':'')+'><span class="lb">'+ICON[p]+label+'</span><span class="cost">'+cost+'</span></button>';
+  }).join('');
+  t.hidden=!list.length;
+  const clueBtn=t.querySelector('[data-p=clue]');if(clueBtn&&!clueBtn.disabled&&R.clue===0&&R.rows.length>=3&&!R.done)clueBtn.classList.add('pulse');
+}
+function renderClue(){
+  const c=$('#clue');const d=WORDS.defs[R.ans];
+  if(!R.clue||!d){c.hidden=true;fitBoard();return}
+  c.innerHTML='<span class="pos">'+d[0]+'</span>'+esc(hide(d[1]))+(R.clue>=2&&d[2]?'<span class="exm">“'+esc(hide(d[2]))+'”</span>':'');
+  c.hidden=false;fitBoard();
+}
+$('#tools').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b||b.disabled||busy||!R||R.done||isCpu())return;useHint(b.dataset.p)});
+function useHint(p){
+  if(p==='skip'){G.clock=Math.max(0,G.clock-3);G.streak=0;G.history.push({w:R.ans,ok:false});R.done=true;toast('Skipped: '+R.ans.toUpperCase());if(G.clock<=0)return G.mode==='jackpot'?endJackpot():endLightning();return nextWord()}
+  if(blocked(p))return;
+  const pr=price(p);
+  if(typeof pr==='number'){if(PROF.coins<pr){shakeTool(p);return toast('Not enough coins. Solve words and finish missions to earn more.')}addCoins(-pr)}
+  else if(pr==='token')G.powers[p]--;
+  if(p==='clue'){R.clue++;renderClue();toast(R.clue===1?'Clue revealed':'Example revealed')}
+  if(p==='reveal'){const unknown=[...Array(R.n).keys()].filter(i=>!R.known[i]);const i=unknown[Math.floor(Math.random()*unknown.length)];R.known[i]=R.ans[i];R.hinted[i]=1;paintActive();toast('Letter '+(i+1)+' revealed')}
+  if(p==='sweep'){const pool=[...'abcdefghijklmnopqrstuvwxyz'].filter(c=>!R.ans.includes(c)&&!R.keys[c]&&!R.swept.has(c));pool.sort(()=>Math.random()-.5).slice(0,4).forEach(c=>R.swept.add(c));paintKeys();toast('4 wrong letters swept away')}
+  if(p==='freeze'){G.frozen=15;toast('Clock frozen for 15s');paintTimer()}
+  R.usedHint=true;R.hints++;PROF.hintsUsed++;saveProf();
+  if(G.mode==='gauntlet')G.usedHint=true;
+  if(G.mode==='daily')saveDaily();
+  sfx.power();renderTools();
+}
+function shakeTool(p){const b=$('#tools [data-p='+p+']');if(!b)return;b.classList.remove('shake');void b.offsetWidth;b.style.animation='shake .4s';setTimeout(()=>b.style.animation='',420);sfx.bad()}
+
+/* ---------- outcomes ---------- */
+function earnFor(idx){
+  const left=Math.max(0,R.tries-idx-1);let coins=G.mode==='practice'?2:5+3*left,xp=10+5*left;
+  if(R.golden){coins*=2;xp*=2}
+  addCoins(coins);addXP(xp);return{coins,xp};
+}
+const earnHTML=e=>'<div class="earn"><span>'+COIN+'+'+e.coins+'</span><span>+'+e.xp+' XP</span></div>';
+function solved(idx){
+  R.done=true;stopTurnTimer();
+  const row=rowEl(idx);row.classList.add('win');[...row.children].forEach((c,i)=>{c.classList.remove('flip');c.style.setProperty('--d',i*.07+'s')});
+  const who=G.mode==='duel'?R.rows[idx].who:0;
+  const cpuSolve=G.mode==='duel'&&G.vs==='cpu'&&who===1;   // the computer's solves don't count toward your stats
+  if(cpuSolve){sfx.lose();buzz(80)}else{R.golden?sfx.gold():sfx.win();buzz([30,40,60])}
+  const praise=idx===R.tries-1?'Phew!':PRAISE[Math.min(idx,PRAISE.length-1)];
+  if(!cpuSolve&&G.mode!=='lightning'&&G.mode!=='jackpot'){confetti(R.golden?150:90)}
+  const secs=(performance.now()-R.start)/1000;
+  let earned={coins:0,xp:0};
+  if(!cpuSolve){
+    STATS.solved++;if(idx===0)STATS.firstTry++;if(R.golden){STATS.golden++;award('golden')}
+    award('first');if(idx===0)award('oneshot');if(idx===R.tries-1)award('clutch');if(secs<=6)award('quick');if(R.n===6&&idx<=1)award('six2');
+    if(R.lastChance)award('second');
+    if(STATS.solved>=100)award('century');
+    if(SET.hard&&G.mode!=='duel'){STATS.hardSolved++;if(STATS.hardSolved>=10)award('hard')}
+    if(!PROF.book[R.ans]){PROF.book[R.ans]=Date.now();if(Object.keys(PROF.book).length>=50)award('book50')}
+    saveStats();
+    emit('solve',{row:idx,len:R.n,golden:R.golden,hinted:R.usedHint,clued:R.clue>0,mode:G.mode});
+    earned=earnFor(idx);
+  }
+  const wait=reduced?100:750;
+  const head='<div class="praise">'+praise+'</div>';
+  const look='<p class="center"><a href="'+lookup(R.ans)+'" target="_blank" rel="noopener">More about “'+R.ans+'”</a></p>';
+  if(G.mode==='gauntlet'){
+    const base=Math.round((R.tries-idx)*20*R.n/5);const timeB=SET.timer?Math.max(0,Math.round(G.turnLeft||0)):0;const mult=1+Math.min(G.streak,8)*.25;const gm=R.golden?2:1;
+    const pts=Math.round((base+timeB)*mult*gm);G.score+=pts;G.streak++;G.bestStreak=Math.max(G.bestStreak,G.streak);G.solvedCount++;G.history.push({w:R.ans,ok:true});
+    if(G.streak>=5)award('streak5');if(G.streak>=10)award('streak10');if(G.score>=1000)award('score1k');
+    emit('streak',{n:G.streak});
+    let earned2='';if(G.solvedCount%3===0){const opts=['clue','reveal','sweep'].concat(SET.timer?['freeze']:[]);const k=opts[Math.floor(Math.random()*opts.length)];G.powers[k]=(G.powers[k]||0)+1;earned2=k}
+    G.level++;if(G.level>=10)award('level10');if(G.level>=6&&!G.usedHint)award('pure');
+    emit('level',{level:G.level});
+    renderHUD();
+    later(()=>modal(head+bigWord(R.ans,false,R.golden)+'<div class="pts">+'+pts+'</div>'+earnHTML(earned)+'<div class="break"><span>Rows left bonus</span><span>'+base+'</span><span>Time bonus</span><span>'+timeB+'</span><span>Streak multiplier</span><span>×'+mult+'</span>'+(R.golden?'<span>Golden word</span><span>×2</span>':'')+'</div>'+(earned2?'<p class="center">Free hint earned: <b style="color:var(--gold-text)">'+HINT_NAME[earned2]+'</b></p>':'')+defHTML(R.ans)+'<div class="btns"><button class="btn primary" data-act="next">Level '+G.level+' →</button></div>',{next:nextWord,locked:true}),wait);
+  }else if(G.mode==='lightning'){
+    const pts=(R.tries-idx)*10*(R.golden?2:1);G.score+=pts;G.solvedCount++;G.clock=Math.min(G.clock+5,999);G.history.push({w:R.ans,ok:true});
+    if(G.solvedCount>=8)award('blitz8');
+    flash(praise+' +'+pts);renderHUD();later(()=>{if(G.clock>0)nextWord()},reduced?150:900);
+  }else if(G.mode==='jackpot'){
+    G.solvedCount++;G.history.push({w:R.ans,ok:true});renderHUD();
+    later(jackpotDraw,reduced?100:600);
+  }else if(G.mode==='duel'){
+    const pts=50;G.scores[who]+=pts;G.history.push({w:R.ans,ok:true,by:who});
+    if(R.steal&&!cpuSolve)award('steal');
+    renderHUD();
+    if(G.tiebreak)return later(duelEnd,wait+400);
+    later(()=>drawPhase(who,R.steal?'stole it!':'cracked it!',pts),wait);
+  }else if(G.mode==='daily'){
+    finishDaily(true,idx);
+  }else{
+    STATS.practice.solved++;saveStats();renderHUD();
+    later(()=>modal(head+bigWord(R.ans,false,R.golden)+'<p class="center">Solved in '+(idx+1)+(idx?' guesses':' guess')+'</p>'+earnHTML(earned)+defHTML(R.ans)+look+'<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="next">Next word</button></div>',{next:nextWord,home:goHome,locked:true}),wait);
+  }
+}
+function failed(){
+  // Gauntlet, like the show: when the rows run out you get a bonus letter and one last guess
+  if(G.mode==='gauntlet'&&!R.lastChance&&bonusLetter()){
+    R.lastChance=true;R.tries++;addRow(true);fitBoard();flash('Last chance');sfx.power();toast('Bonus letter! One more guess to save a life');
+    renderHUD();paintActive();renderTools();resetTurnTimer();return;
+  }
+  R.done=true;stopTurnTimer();sfx.lose();buzz(200);renderTools();
+  const wait=reduced?100:500;
+  const look='<p class="center"><a href="'+lookup(R.ans)+'" target="_blank" rel="noopener">More about “'+R.ans+'”</a></p>';
+  if(G.mode==='gauntlet'){
+    G.lives--;G.streak=0;G.history.push({w:R.ans,ok:false});renderHUD();
+    if(G.lives<=0)return later(endGauntlet,wait);
+    later(()=>modal('<h2 class="center">Missed it</h2><p class="center">The word was</p>'+bigWord(R.ans,true)+defHTML(R.ans)+'<p class="center">'+G.lives+(G.lives===1?' life':' lives')+' left. Your streak resets.</p><div class="btns"><button class="btn primary" data-act="next">Keep going →</button></div>',{next:nextWord,locked:true}),wait);
+  }else if(G.mode==='lightning'||G.mode==='jackpot'){
+    G.history.push({w:R.ans,ok:false});toast('It was '+R.ans.toUpperCase());later(()=>{if(G.clock>0)nextWord()},reduced?200:1100);
+  }else if(G.mode==='duel'){
+    G.history.push({w:R.ans,ok:false,by:null});
+    later(()=>modal('<h2 class="center">Nobody got it</h2><p class="center">The word was</p>'+bigWord(R.ans,true)+defHTML(R.ans)+'<p class="center">Score '+G.scores[0]+' – '+G.scores[1]+'</p><div class="btns"><button class="btn primary" data-act="next">'+(G.tiebreak?'See results':nextLabel())+'</button></div>',{next:G.tiebreak?duelEnd:duelNext,locked:true}),wait);
+  }else if(G.mode==='daily'){finishDaily(false)}
+  else later(()=>modal('<h2 class="center">So close</h2><p class="center">The word was</p>'+bigWord(R.ans,true)+defHTML(R.ans)+look+'<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="next">Next word</button></div>',{next:nextWord,home:goHome,locked:true}),wait);
+}
+const bigWord=(w,lost,gold)=>'<div class="big-word'+(lost?' lost':gold?' gold':'')+'">'+[...w].map(c=>'<b>'+c+'</b>').join('')+'</div>';
+const wordList=h=>'<div class="wordlist">'+h.map(x=>'<a href="'+lookup(x.w)+'" target="_blank" rel="noopener" class="'+(x.ok?'':'lost')+'">'+x.w+'</a>').join('')+'</div>';
+
+function endGauntlet(){
+  const s=STATS.gauntlet;s.played++;const rec=G.score>s.best;s.best=Math.max(s.best,G.score);s.bestLevel=Math.max(s.bestLevel,G.level);s.bestStreak=Math.max(s.bestStreak,G.bestStreak);saveStats();
+  const bonus=Math.floor(G.score/50);if(bonus)addCoins(bonus);
+  if(rec&&G.score>0)confetti(160);
+  modal('<h2 class="center">'+(rec&&G.score>0?'New high score!':'Game over')+'</h2><div class="pts">'+G.score.toLocaleString()+'</div>'+(bonus?'<div class="earn"><span>'+COIN+'+'+bonus+' run bonus</span></div>':'')+'<div class="stats"><div><b>'+G.level+'</b><span>Level</span></div><div><b>'+G.solvedCount+'</b><span>Solved</span></div><div><b>'+G.bestStreak+'</b><span>Streak</span></div><div><b>'+s.best.toLocaleString()+'</b><span>Best</span></div></div><h3>Words this run</h3>'+wordList(G.history)+'<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="again">Play again</button></div>',{again:()=>startMode('gauntlet'),home:goHome,locked:true});
+}
+function endLightning(){
+  if(R)R.done=true;stopTurnTimer();sfx.lose();
+  const s=STATS.lightning;s.played++;const rec=G.score>s.best;s.best=Math.max(s.best,G.score);s.bestWords=Math.max(s.bestWords,G.solvedCount);saveStats();
+  emit('lightning',{solved:G.solvedCount});
+  if(R&&!G.history.some(h=>h.w===R.ans))G.history.push({w:R.ans,ok:false});
+  if(rec&&G.score>0)confetti(160);
+  modal('<h2 class="center">'+(rec&&G.score>0?'New best!':'Time’s up')+'</h2><div class="pts">'+G.score+' pts</div><div class="stats"><div><b>'+G.solvedCount+'</b><span>Solved</span></div><div><b>'+s.bestWords+'</b><span>Most</span></div><div><b>'+s.best+'</b><span>Best pts</span></div><div><b>'+s.played+'</b><span>Played</span></div></div><h3>Words</h3>'+wordList(G.history)+'<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="again">Play again</button></div>',{again:()=>startMode('lightning'),home:goHome,locked:true});
+}
+
+/* ---------- showdown: show rules ----------
+   The player in control has 5 rows. A wrong word keeps control; an invalid word or running out of time passes
+   control to the rival with a bonus letter. If the 5 rows run out, the rival gets one steal guess (the dashed row)
+   with a bonus letter. A solve scores 50 and earns 2 ball draws onto the solver's lock card. */
+function duelAfterMiss(err){
+  if(G.tiebreak){if(R.rows.length>=R.tries)return failed();G.turn=1-G.turn;return duelContinue()}
+  if(R.steal||R.rows.length>=R.tries)return failed();
+  if(R.rows.length>=R.tries-1){
+    G.turn=1-G.turn;R.steal=true;const b=bonusLetter();flash('Steal!');sfx.power();
+    toast((G.names[G.turn]==='You'?'You get':G.names[G.turn]+' gets')+' one guess to steal'+(b?', with a bonus letter':''));return duelContinue();
+  }
+  if(err){G.turn=1-G.turn;const b=bonusLetter();toast('Control passes to '+(G.names[G.turn]==='You'?'you':G.names[G.turn])+(b?' with a bonus letter':''))}
+  duelContinue();
+}
+function duelContinue(){renderHUD();paintActive();renderTools();resetTurnTimer();cpuMaybe()}
+const nextLabel=()=>G.round+1>=G.rounds?'See results':'Word '+(G.round+2)+' of '+G.rounds+' →';
+function duelNext(){if(G.round+1>=G.rounds)return duelEnd();G.round++;nextWord()}
+
+/* lock cards: 5×5 numbers, some already marked. Balls come from a hopper of the open numbers,
+   plus gold balls (bonus and a free draw) and red balls (your draws end). */
+const LINES=(()=>{const L=[];for(let i=0;i<5;i++){L.push([0,1,2,3,4].map(j=>i*5+j));L.push([0,1,2,3,4].map(j=>j*5+i))}L.push([0,6,12,18,24],[4,8,12,16,20]);return L})();
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function newCard(open,gold,jinx){
+  const nums=[];for(let c=0;c<5;c++){shuffle([...Array(10)].map((_,i)=>c*10+i+1)).slice(0,5).sort((a,b)=>a-b).forEach((v,r)=>nums[r*5+c]=v)}
+  // keep at least one open square on every line: a random permutation covers each row and column, then the diagonals
+  const op=new Set(shuffle([0,1,2,3,4]).map((c,r)=>r*5+c));
+  for(const d of [LINES[10],LINES[11]])if(!d.some(i=>op.has(i)))op.add(d[Math.floor(Math.random()*5)]);
+  const rest=shuffle([...Array(25).keys()].filter(i=>!op.has(i)));while(op.size<open&&rest.length)op.add(rest.pop());
+  return{nums,marked:nums.map((_,i)=>!op.has(i)),hopper:shuffle([...op].map(i=>nums[i]).concat(Array(gold).fill('G'),Array(jinx).fill('J'))),lines:[],last:null};
+}
+function drawBall(card){
+  if(!card.hopper.some(b=>typeof b==='number'))return null;
+  const b=card.hopper.shift();
+  if(b==='J'){card.hopper.push('J');shuffle(card.hopper);return{kind:'jinx'}}
+  if(b==='G')return{kind:'gold'};
+  const i=card.nums.indexOf(b);card.marked[i]=true;card.last=i;
+  const fresh=[];LINES.forEach((L,li)=>{if(!card.lines.includes(li)&&L.every(k=>card.marked[k]))fresh.push(li)});
+  card.lines.push(...fresh);
+  return{kind:'num',n:b,lines:fresh.length};
+}
+function cardHTML(card,p){const hot=new Set(card.lines.flatMap(li=>LINES[li]));return '<div class="card p'+p+'">'+card.nums.map((v,i)=>'<b class="'+(card.marked[i]?'on':'')+(i===card.last?' new':'')+(hot.has(i)?' line':'')+'">'+v+'</b>').join('')+'</div>'}
+const ballHTML=b=>b.kind==='gold'?'<span class="ball gold">★</span>':b.kind==='jinx'?'<span class="ball jinx">✕</span>':'<span class="ball">'+b.n+'</span>';
+function drawPhase(p,title,pts){
+  if(G.cards[p].lines.length)G.cards[p]=newCard(15,2,1);   // a card with a finished line is swapped for a fresh one
+  const card=G.cards[p];card.last=null;
+  const cpu=G.vs==='cpu'&&p===1;
+  const D={left:2,log:[],msg:'2 draws. Fill a line for +100.'};
+  const body=()=>'<h2 class="center">'+esc(G.names[p])+' '+title+'</h2>'+bigWord(R.ans,cpu)+'<div class="pts">+'+pts+'</div>'+defHTML(R.ans)+
+    '<h3 class="center">'+(G.names[p]==='You'?'Your':esc(G.names[p])+'’s')+' lock card</h3>'+cardHTML(card,p)+'<div class="balls">'+D.log.map(ballHTML).join('')+'</div><div class="drawmsg">'+D.msg+'</div>'+
+    '<p class="center">Score '+esc(G.names[0])+' '+G.scores[0]+' – '+G.scores[1]+' '+esc(G.names[1])+'</p>'+
+    '<div class="btns">'+(D.left>0?(cpu?'<button class="btn" disabled>Computer is drawing…</button>':'<button class="btn primary" data-act="draw">Draw a ball ('+D.left+' left)</button>'):'<button class="btn primary" data-act="next">'+nextLabel()+'</button>')+'</div>';
+  const upd=()=>{const s=$('#overlay .sheet');if(s){s.innerHTML=body();const b=s.querySelector('.btn.primary');b&&b.focus({preventScroll:true})}};
+  const doDraw=()=>{
+    if(D.left<=0)return;const r=drawBall(card);
+    if(!r){D.left=0;D.msg='No balls left';return upd()}
+    D.log.push(r);
+    if(r.kind==='gold'){G.scores[p]+=25;D.msg='Gold ball! +25 and a free draw';sfx.gold()}
+    else if(r.kind==='jinx'){D.left=0;D.msg='Red ball. Draws over.';sfx.bad();buzz(80)}
+    else{D.left--;
+      if(r.lines){const b=100*r.lines;G.scores[p]+=b;D.msg=(r.lines>1?r.lines+' lines!':'Line!')+' +'+b;confetti(120);sfx.win();if(!cpu){award('line');emit('line')}}
+      else{D.msg='Number '+r.n;sfx.hit(2)}}
+    renderHUD();upd();if(cpu&&D.left>0)later(doDraw,1000);
+  };
+  modal(body(),{draw:doDraw,next:duelNext,locked:true});
+  if(cpu)later(doDraw,1000);
+}
+function duelEnd(){
+  const [a,b]=G.scores;
+  if(a===b&&!G.tiebreak){
+    G.tiebreak=true;G.round++;
+    return modal('<h2 class="center">All square at '+a+'</h2><p class="center">Sudden death: one 5-letter word. Players alternate every guess and the first to solve it wins.</p><div class="btns"><button class="btn primary" data-act="next">Sudden death →</button></div>',{next:nextWord,locked:true});
+  }
+  STATS.duel.played++;
+  const win=a===b?null:a>b?0:1;const humanWin=win!==null&&!(G.vs==='cpu'&&win===1);
+  if(humanWin){award('duel');confetti(160);if(G.vs==='cpu')STATS.duel.won++;sfx.win()}else sfx.lose();
+  saveStats();emit('duelend');
+  const title=win===null?'It’s a tie!':G.vs==='cpu'?(win===0?'You win!':'The computer wins'):esc(G.names[win])+' wins!';
+  modal('<h2 class="center">'+title+'</h2><div class="pts">'+a+' – '+b+'</div><div class="stats" style="grid-template-columns:1fr 1fr"><div><b style="color:var(--hit)">'+a+'</b><span>'+esc(G.names[0])+'</span></div><div><b style="color:var(--near)">'+b+'</b><span>'+esc(G.names[1])+'</span></div></div>'+
+    (humanWin?'<p class="center"><b>'+(G.names[win]==='You'?'You</b> play':esc(G.names[win])+'</b> plays')+' the <b>Jackpot round</b>: 90 seconds of words, one ball for each solve, and the coins double with every line.</p>':'')+
+    '<h3>Words</h3>'+wordList(G.history)+'<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn'+(humanWin?'':' primary')+'" data-act="again">Rematch</button>'+(humanWin?'<button class="btn primary" data-act="jackpot">Jackpot round →</button>':'')+'</div>',
+    {again:()=>startMode('duel',{ready:true}),jackpot:()=>startMode('jackpot'),home:goHome,locked:true});
+}
+
+/* ---------- jackpot round: the winner's bonus ---------- */
+function jackpotDraw(){
+  const card=G.card;card.last=null;const log=[];let msg='',r;
+  if(card.lines.length===12){G.card=newCard(13,2,0);return jackpotDraw()}
+  while((r=drawBall(card))&&r.kind==='gold'){log.push(r);G.clock+=10}
+  if(r){log.push(r);if(r.lines){for(let i=0;i<r.lines;i++){G.lines++;G.pot=G.pot?G.pot*2:50}award('jackpot');msg=(r.lines>1?r.lines+' lines!':'Line!')+' Jackpot now '+G.pot+' coins';confetti(140);sfx.gold()}else{msg='Number '+r.n;sfx.hit(2)}}
+  if(log.some(b=>b.kind==='gold'))msg+=(msg?'. ':'')+'Gold ball: +10 seconds';
+  renderHUD();
+  modal('<div class="praise">Solved: '+R.ans.toUpperCase()+'</div>'+cardHTML(card,0)+'<div class="balls">'+log.map(ballHTML).join('')+'</div><div class="drawmsg">'+msg+'</div>',{locked:true});
+  later(()=>{closeModal();if(card.lines.length===12)G.card=newCard(13,2,0);if(G.clock>0)nextWord();else endJackpot()},reduced?400:1500);
+}
+function endJackpot(){
+  if(R)R.done=true;stopTurnTimer();
+  if(R&&!G.history.some(h=>h.w===R.ans))G.history.push({w:R.ans,ok:false});
+  const pay=G.pot||10;addCoins(pay);
+  const s=STATS.duel;if(G.pot){s.jackpots++;s.bestJackpot=Math.max(s.bestJackpot,G.pot);confetti(180);sfx.gold()}else sfx.lose();saveStats();
+  modal('<h2 class="center">'+(G.pot?'Jackpot!':'No line this time')+'</h2><div class="pts">'+COIN+' '+pay+'</div><p class="center">'+(G.pot?G.lines+(G.lines===1?' line':' lines')+' filled. The coins are yours.':'You still take home 10 coins for playing.')+'</p>'+cardHTML(G.card,0)+'<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div><b>'+G.solvedCount+'</b><span>Solved</span></div><div><b>'+G.lines+'</b><span>Lines</span></div><div><b>'+s.bestJackpot+'</b><span>Best pot</span></div></div><h3>Words</h3>'+wordList(G.history)+
+    '<div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="again">New showdown</button></div>',{again:()=>startMode('duel'),home:goHome,locked:true});
+}
+
+/* ---------- computer opponent ---------- */
+const isCpu=()=>!!(G&&R&&G.mode==='duel'&&G.vs==='cpu'&&G.turn===1&&!R.done);
+const CPU={easy:{think:1700,slip:.08},normal:{think:1300,slip:.04},hard:{think:1000,slip:.015}};
+function cpuGuess(){
+  const f=R.ans[0],n=R.n;
+  if(!R.pool){R.pool=[...WORDS.valid[n]].filter(w=>w[0]===f);R.common=WORDS.ans[n].filter(w=>w[0]===f)}
+  const tried=new Set(R.rows.map(r=>r.word));
+  const fits=w=>!tried.has(w)&&Object.keys(R.known).every(p=>w[p]===R.known[p])&&R.rows.every(r=>!r.res||evaluate(r.word,w).join()===r.res.join());
+  const loose=w=>!tried.has(w)&&Object.keys(R.known).every(p=>w[p]===R.known[p]);
+  const any=L=>L.length?L[Math.floor(Math.random()*L.length)]:null;
+  const q=Math.random();let w=null;
+  if(G.cpu==='hard')w=any(R.common.filter(fits));
+  else if(G.cpu==='normal')w=q<.3?any(R.common.filter(fits)):q<.45?any(R.pool.filter(loose)):any(R.pool.filter(fits));
+  else w=q<.5?any(R.pool.filter(loose)):any(R.pool.filter(fits));
+  return w||any(R.common.filter(fits))||R.ans;
+}
+function cpuMaybe(){
+  if(!isCpu())return;
+  const rr=R,rows=R.rows.length,lv=CPU[G.cpu]||CPU.normal;
+  const still=()=>R===rr&&!R.done&&R.rows.length===rows&&isCpu();
+  later(()=>{
+    if(!still())return;
+    let w=cpuGuess();
+    if(Math.random()<lv.slip){const t=w[0]+shuffle([...w.slice(1)]).join('');if(!WORDS.valid[R.n].has(t))w=t}   // the odd fumble, like on TV
+    let i=1;R.typed='';
+    const step=()=>{if(!still())return;if(i<R.n){R.typed+=w[i++];sfx.key();paintActive();later(step,110+Math.random()*120)}else later(()=>{if(still())submit()},380)};
+    step();
+  },lv.think*(.7+Math.random()*.6));
+}
+
+/* ---------- daily ---------- */
+function finishDaily(won,idx){
+  const d=STATS.daily,k=todayKey();
+  d.played++;
+  if(won){d.won++;d.dist[idx]++;d.streak=(d.last===yesterdayKey())?d.streak+1:1;d.last=k;d.maxStreak=Math.max(d.maxStreak,d.streak);if(d.streak>=3)award('daily3');if(d.streak>=7)award('daily7');emit('dailywin')}
+  else{d.streak=0;d.last=k}
+  d.results[k]={won,rows:R.rows.map(r=>r.res),word:R.ans,n:dayNumber(),hints:R.hints};d.cur={date:null,words:[],hinted:{},clue:0,hints:0};
+  const keys=Object.keys(d.results).sort();while(keys.length>60)delete d.results[keys.shift()];
+  saveStats();later(()=>dailyResult(false),reduced?100:900);
+}
+// today's guesses are saved as you go, so leaving or closing the app doesn't lose (or reset) your daily attempt
+function saveDaily(){STATS.daily.cur={date:todayKey(),words:R.rows.map(r=>r.word),hinted:{...R.hinted},clue:R.clue,hints:R.hints};saveStats()}
+function restoreDaily(){
+  const c=STATS.daily.cur;if(!c||c.date!==todayKey()||(!c.words.length&&!c.hints))return;
+  for(const w of c.words.slice(0,R.tries-1)){
+    const row=rowEl(R.rows.length);
+    if(!w){R.rows.push({word:'',res:null});row.classList.add('timeout');[...row.children].forEach((cl,i)=>{cl.className='cell';cl.textContent='NOPE'[i]||''});continue}
+    const res=evaluate(w,R.ans);R.rows.push({word:w,res});[...row.children].forEach((cl,i)=>{cl.className='cell '+res[i];cl.textContent=w[i]});
+    res.forEach((st,i)=>{const k=w[i];if(!R.keys[k]||RANK[st]>RANK[R.keys[k]])R.keys[k]=st;if(st==='hit')R.known[i]=k});
+  }
+  for(const p in c.hinted){R.known[p]=R.ans[p];R.hinted[p]=1}
+  R.clue=c.clue||0;R.hints=c.hints||0;R.usedHint=R.hints>0;
+  paintKeys();paintActive();renderClue();renderTools();toast('Welcome back. Your guesses are restored.');
+}
+function shareText(r){
+  const em={hit:'🟩',near:'🟧',miss:'⬛'};
+  return 'Letterlock Daily #'+r.n+' '+(r.won?r.rows.length:'X')+'/6'+(r.hints?' 💡'+r.hints:'')+'\n'+r.rows.map(row=>row?row.map(s=>em[s]).join(''):'⏱️').join('\n');
+}
+function dailyResult(fromHome){
+  const d=STATS.daily,r=d.results[todayKey()];if(!r)return;
+  const max=Math.max(1,...d.dist);
+  const dist=d.dist.map((v,i)=>'<div>'+(i+1)+'<i class="'+(r.won&&r.rows.length===i+1?'me':'')+'" style="width:'+Math.max(6,v/max*100)+'%">'+v+'</i></div>').join('');
+  modal(X+'<h2>'+(r.won?'Daily solved!':'Not today')+'</h2><p>Word #'+r.n+' was</p>'+bigWord(r.word,!r.won)+defHTML(r.word)+'<div class="stats"><div><b>'+d.played+'</b><span>Played</span></div><div><b>'+Math.round(d.won/Math.max(1,d.played)*100)+'</b><span>Win %</span></div><div><b>'+d.streak+'</b><span>Streak</span></div><div><b>'+d.maxStreak+'</b><span>Best</span></div></div><h3>Guess distribution</h3><div class="dist">'+dist+'</div><h3>Next word in</h3><div class="countdown" id="cd"></div><div class="btns"><button class="btn" data-act="home">Home</button><button class="btn primary" data-act="share">'+(NATIVE&&NATIVE.Share?'Share result':'Copy result')+'</button></div>',
+  {share:b=>copy(shareText(r),b),home:goHome,close:()=>{closeModal();if(!fromHome)goHome()},locked:!fromHome});
+  const cd=()=>{const el=$('#cd');if(!el)return clearInterval(ci);const t=new Date();const m=new Date(t);m.setHours(24,0,0,0);const s=Math.floor((m-t)/1000);el.textContent=[s/3600,s%3600/60,s%60].map(v=>String(Math.floor(v)).padStart(2,'0')).join(':')};
+  const ci=setInterval(cd,1000);cd();
+}
+function copy(text,btn){
+  if(NATIVE&&NATIVE.Share){NATIVE.Share.share({text,dialogTitle:'Share your result'}).catch(()=>{});return}
+  const ok=()=>{btn.textContent='Copied!';toast('Result copied. Paste it anywhere.')};
+  try{navigator.clipboard.writeText(text).then(ok,()=>fallback())}catch(e){fallback()}
+  function fallback(){const t=document.createElement('textarea');t.value=text;t.style.cssText='width:100%;height:120px;margin-top:10px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:13px var(--f-mono);user-select:text';btn.closest('.sheet').appendChild(t);t.select();try{document.execCommand('copy');ok()}catch(e){toast('Select the text and copy it')}}
+}
+
+/* ---------- menus ---------- */
+function goHome(){RUN++;closeModal();stopTurnTimer();G=null;R=null;show('home')}
+$('#quit').onclick=()=>{
+  if(!G)return goHome();
+  if(G.mode==='practice'||G.mode==='daily'||(R&&R.done&&G.mode!=='gauntlet'&&G.mode!=='duel'))return goHome();
+  modal(X+'<h2>Leave this game?</h2><p>Progress in this '+MODE_NAME[G.mode]+(G.mode==='jackpot'?' round':' run')+' will be lost.</p><div class="btns"><button class="btn" data-act="close">Keep playing</button><button class="btn primary" data-act="leave">Leave game</button></div>',{leave:goHome});
+};
+function pickLength(){
+  modal(X+'<h2>Practice</h2><p>Pick a word length. No timer, 6 tries, and every hint is free.</p><div class="lenpick"><button data-act="l4">4<span>letters</span></button><button data-act="l5">5<span>letters</span></button><button data-act="l6">6<span>letters</span></button></div>',{l4:()=>startMode('practice',{len:4}),l5:()=>startMode('practice',{len:5}),l6:()=>startMode('practice',{len:6})});
+}
+function duelSetup(){
+  let vs=SET.duelVs;
+  modal(X+'<h2>Showdown</h2><p>Show rules. You have 5 tries per word. A wrong word keeps your turn, but a made-up word or running out of time hands control to your rival with a bonus letter. Miss all 5 and your rival gets one steal guess.</p><p>Every solve scores 50 and draws 2 balls for your lock card. Fill a line for +100. Gold balls pay +25, red balls end your draws. The winner plays the Jackpot round.</p>'+
+  '<div class="vs"><button data-act="cpu" class="'+(vs==='cpu'?'on':'')+'">vs Computer</button><button data-act="friend" class="'+(vs==='friend'?'on':'')+'">vs Friend<br><small style="font-weight:600;color:var(--muted)">pass and play</small></button></div>'+
+  '<div class="set" id="rowLvl"><label for="dlvl">Computer skill</label><select id="dlvl">'+[['easy','Easy'],['normal','Normal'],['hard','Hard']].map(([v,l])=>'<option value="'+v+'"'+(SET.cpuLvl===v?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
+  '<div class="set"><label for="dp1" id="lp1">Player 1</label><input type="text" id="dp1" maxlength="14" value="'+esc(SET.p1)+'"></div>'+
+  '<div class="set" id="rowP2"><label for="dp2">Player 2</label><input type="text" id="dp2" maxlength="14" value="'+esc(SET.p2)+'"></div>'+
+  '<div class="set"><label for="drounds">Words</label><select id="drounds">'+[4,6,8,10].map(v=>'<option'+(SET.duelRounds==v?' selected':'')+'>'+v+'</option>').join('')+'</select></div>'+
+  '<div class="set"><label for="dlen">Word length</label><select id="dlen">'+[['4','4 letters'],['5','5 letters'],['6','6 letters'],['mix','5 and 6']].map(([v,l])=>'<option value="'+v+'"'+(String(SET.duelLen)===v?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
+  '<div class="btns"><button class="btn primary" data-act="go">Start showdown</button></div>',
+  {cpu:()=>setVs('cpu'),friend:()=>setVs('friend'),
+   go:()=>{SET.duelVs=vs;SET.cpuLvl=$('#dlvl').value;SET.p1=$('#dp1').value.trim()||'Player 1';SET.p2=$('#dp2').value.trim()||'Player 2';SET.duelRounds=+$('#drounds').value;SET.duelLen=$('#dlen').value;saveSet();startMode('duel',{ready:true})}});
+  function setVs(v){vs=v;document.querySelectorAll('#overlay .vs button').forEach(b=>b.classList.toggle('on',b.dataset.act===v));$('#rowLvl').hidden=v!=='cpu';$('#rowP2').hidden=v==='cpu';$('#lp1').textContent=v==='cpu'?'Your name':'Player 1'}
+  setVs(vs);
+}
+function renderBook(q){
+  const words=Object.keys(PROF.book).sort((a,b)=>PROF.book[b]-PROF.book[a]).filter(w=>!q||w.includes(q));
+  return words.length?words.slice(0,150).map(w=>{const d=WORDS.defs[w];return '<div class="entry"><b>'+w+'</b>'+(d?'<i>'+d[0]+'</i><p>'+esc(unmask(d[1]))+'</p>':'')+'</div>'}).join('')+(words.length>150?'<p class="center">Showing 150 of '+words.length+'. Search to find more.</p>':''):'<p class="center">'+(q?'No words match.':'Words you solve are collected here with their meanings.')+'</p>';
+}
+function openPanel(which){
+  if(which==='help'){
+    const ex=(w,cls)=>'<div class="ex">'+[...w].map((c,i)=>'<div class="cell '+(cls[i]||'')+'">'+c+'</div>').join('')+'</div>';
+    modal(X+'<h2>How to play</h2><p>Find the hidden word. The first letter is always given and locked in gold. Type the rest and press Enter.</p>'+
+    ex('plant',['lock','hit','near','miss','miss'])+'<p><b style="color:var(--hit)">Green</b>: right letter, right spot. <b style="color:var(--near)">Orange</b>: in the word, wrong spot. Grey: not in the word. Letters you have placed carry down as faint ghosts.</p>'+
+    '<h3>Hints</h3><p><b>Clue</b> shows what the word means. Tap again for an example sentence. <b>Reveal</b> shows one hidden letter. <b>Sweep</b> clears 4 wrong letters off the keyboard. <b>Freeze</b> stops the clock for 15 seconds.</p><p>Hints cost coins, except in Practice where they are free. Gauntlet gives you one free hint of each kind and another every 3 solves.</p>'+
+    '<h3>Coins, ranks and missions</h3><p>Every solve earns coins and XP, more for fewer guesses. XP raises your rank from Rookie to Lexicon Legend. Three new missions appear each day, and you get a bonus just for showing up. Spend coins on hints and new themes.</p><p><b>Golden words</b> appear at random with a gold frame. They pay double points, coins and XP.</p>'+
+    '<h3>Modes</h3><p><b>Gauntlet</b>: 5 tries per word, a clock on every guess, 3 lives. Miss all 5 and you get a bonus letter and one last-chance guess. Words grow from 4 to 6 letters. Points come from rows left and seconds left, multiplied by your streak (up to ×3).</p><p><b>Daily Word</b>: one 5-letter word a day, the same for everyone. Share your grid.</p><p><b>Lightning</b>: 120 seconds of 5-letter words. Each solve adds 5 seconds.</p><p><b>Showdown</b>: head to head against the computer or a friend, with show rules. A made-up word or running out of time passes control to your rival with a bonus letter. Miss all 5 rows and your rival gets one steal guess. Each solve scores 50 and draws 2 balls for your lock card; fill a line for +100. The winner plays the <b>Jackpot round</b>, where every line doubles the coins.</p>'+
+    '<h3>Word book</h3><p>Every word you solve is saved with its meaning, so you can look back at what you learned.</p><div class="btns"><button class="btn primary" data-act="close">Got it</button></div>');
+  }else if(which==='book'){
+    const n=Object.keys(PROF.book).length;
+    modal(X+'<h2>Word book</h2><p>'+n+(n===1?' word':' words')+' collected</p><input class="search" id="bookq" type="search" placeholder="Search your words" autocomplete="off"><div class="book" id="booklist">'+renderBook('')+'</div>');
+    $('#bookq').addEventListener('input',e=>{$('#booklist').innerHTML=renderBook(e.target.value.trim().toLowerCase())});
+  }else if(which==='shop'){
+    const draw=()=>'<div class="skins">'+SKINS.map(s=>{const own=PROF.owned.includes(s.id),on=PROF.skin===s.id;
+      return '<div class="skin'+(on?' on':'')+'" style="background:'+s.c[0]+';color:'+(s.id==='daylight'?'#1b1d33':'#f4f1ff')+'"><b>'+s.name+'</b><div class="sw"><i style="background:'+s.c[3]+'"></i><i style="background:'+s.c[1]+'"></i><i style="background:'+s.c[2]+'"></i></div>'+
+      (on?'<button disabled>In use</button>':own?'<button data-act="use" data-id="'+s.id+'">Use</button>':'<button class="buy" data-act="buy" data-id="'+s.id+'">'+COIN+s.price+'</button>')+'</div>'}).join('')+'</div>';
+    const h={use:b=>{PROF.skin=b.dataset.id;saveProf();applyLook();$('#skinwrap').innerHTML=draw()},
+      buy:b=>{const s=SKINS.find(x=>x.id===b.dataset.id);if(PROF.coins<s.price)return toast('You need '+(s.price-PROF.coins)+' more coins');addCoins(-s.price);PROF.owned.push(s.id);PROF.skin=s.id;saveProf();applyLook();award('stylist');confetti(80);$('#skinwrap').innerHTML=draw()}};
+    modal(X+'<h2>Themes</h2><p>Change the look of the board, keyboard and stage. You have <b class="coinval">'+PROF.coins+'</b> coins.</p><div id="skinwrap">'+draw()+'</div>',h);
+  }else if(which==='stats'){
+    const d=STATS.daily,g=STATS.gauntlet,l=STATS.lightning;
+    modal(X+'<h2>Stats</h2><h3>Overall</h3><div class="stats"><div><b>'+STATS.solved+'</b><span>Words</span></div><div><b>'+STATS.firstTry+'</b><span>1st try</span></div><div><b>'+STATS.golden+'</b><span>Golden</span></div><div><b>'+PROF.hintsUsed+'</b><span>Hints</span></div></div>'+
+    '<h3>Gauntlet</h3><div class="stats"><div><b>'+g.played+'</b><span>Runs</span></div><div><b>'+g.best.toLocaleString()+'</b><span>Best</span></div><div><b>'+g.bestLevel+'</b><span>Level</span></div><div><b>'+g.bestStreak+'</b><span>Streak</span></div></div>'+
+    '<h3>Lightning and more</h3><div class="stats"><div><b>'+l.played+'</b><span>Rounds</span></div><div><b>'+l.bestWords+'</b><span>Most</span></div><div><b>'+STATS.duel.played+'</b><span>Showdowns</span></div><div><b>'+STATS.practice.solved+'</b><span>Practice</span></div></div>'+
+    '<h3>Showdown</h3><div class="stats" style="grid-template-columns:repeat(3,1fr)"><div><b>'+STATS.duel.won+'</b><span>Wins vs CPU</span></div><div><b>'+STATS.duel.jackpots+'</b><span>Jackpots</span></div><div><b>'+STATS.duel.bestJackpot+'</b><span>Best pot</span></div></div>'+
+    '<h3>Daily</h3><div class="stats"><div><b>'+d.played+'</b><span>Played</span></div><div><b>'+Math.round(d.won/Math.max(1,d.played)*100)+'</b><span>Win %</span></div><div><b>'+d.streak+'</b><span>Streak</span></div><div><b>'+d.maxStreak+'</b><span>Best</span></div></div>'+
+    '<div class="btns"><button class="btn" data-act="reset">Reset everything</button><button class="btn primary" data-act="close">Done</button></div>',
+    {reset:b=>{if(b.dataset.armed){STATS=merge(DEF_STATS,{});PROF=merge(DEF_PROF,{lastLogin:todayKey()});AWARDS={};saveStats();saveProf();store.set('awards',AWARDS);applyLook();closeModal();refreshHome();toast('Progress reset')}else{b.dataset.armed=1;b.textContent='Tap again to confirm'}}});
+  }else if(which==='awards'){
+    modal(X+'<h2>Awards</h2><p>'+Object.keys(AWARDS).length+' of '+AWARD_LIST.length+' unlocked. Each one pays 25 coins.</p><div class="awards">'+AWARD_LIST.map(([id,n,d])=>'<div class="award'+(AWARDS[id]?' got':'')+'"><b>'+(AWARDS[id]?'★ ':'')+n+'</b><span>'+d+'</span></div>').join('')+'</div>');
+  }else if(which==='settings'){
+    const tg=(id,label,sub)=>'<div class="set"><label for="s_'+id+'">'+label+(sub?'<small>'+sub+'</small>':'')+'</label><input type="checkbox" id="s_'+id+'"'+(SET[id]?' checked':'')+'></div>';
+    modal(X+'<h2>Settings</h2>'+
+    '<div class="set"><label for="s_timer">Guess clock<small>Gauntlet and Showdown</small></label><select id="s_timer">'+[[0,'Off'],[10,'10 seconds'],[15,'15 seconds'],[20,'20 seconds'],[30,'30 seconds']].map(([v,l])=>'<option value="'+v+'"'+(SET.timer==v?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
+    tg('hard','Hard mode','Green letters stay put; orange letters must be reused')+
+    tg('strict','Strict words','A word not in the list costs you the row, like on TV. Always on in Showdown.')+
+    tg('cb','High-contrast colors','Blue and amber with corner markers')+
+    tg('sound','Sound effects','')+tg('haptics','Vibration','On supported phones')+
+    '<div class="btns"><button class="btn primary" data-act="close">Done</button></div>');
+    document.querySelectorAll('#overlay input[type=checkbox],#overlay select').forEach(el=>el.addEventListener('change',()=>{
+      const k=el.id.slice(2);SET[k]=el.type==='checkbox'?el.checked:+el.value;saveSet();applyLook();if(G&&R)renderTools();
+    }));
+  }
+}
+document.addEventListener('click',e=>{const o=e.target.closest('[data-open]');if(o)openPanel(o.dataset.open);const m=e.target.closest('[data-mode]');if(m)startMode(m.dataset.mode)});
+
+function refreshHome(){
+  const g=STATS.gauntlet,l=STATS.lightning,d=STATS.daily;
+  $('#bestG').textContent=g.played?'Best '+g.best.toLocaleString()+' pts · level '+g.bestLevel:'Your first run awaits';
+  $('#bestL').textContent=l.played?'Best '+l.bestWords+' words':'No rounds yet';
+  $('#bestD').textContent=STATS.duel.played?STATS.duel.played+' played · '+STATS.duel.won+' won vs CPU':'Computer or friend';
+  $('#bestP').textContent=STATS.practice.solved+' solved · '+Object.keys(PROF.book).length+' in word book';
+  const r=d.results[todayKey()];
+  $('#dailyTitle').textContent='Daily Word #'+dayNumber();
+  $('#dailySub').textContent=r?(r.won?'Solved in '+r.rows.length+'. Streak '+d.streak+'.':'Missed today. Back tomorrow.'):(d.streak?'Keep your '+d.streak+'-day streak alive':'One word, same for everyone, 6 tries');
+  $('#dailyGo').textContent=r?'RESULT':'PLAY';
+  const rk=rankOf(PROF.xp);$('#rankLvl').textContent=rk.lvl;$('#rankName').textContent=rankName(rk.lvl);$('#xpBar').style.width=(rk.into/rk.need*100)+'%';$('#xpText').textContent=rk.into+' / '+rk.need+' XP to level '+(rk.lvl+1);
+  updateCoins();renderMissions();
+}
+document.addEventListener('visibilitychange',()=>{lastTick=performance.now();if(!document.hidden&&!$('#home').hidden&&!modalOpen()){loginBonus(false);renderMissions()}});
+if(NATIVE&&NATIVE.App){NATIVE.App.addListener('backButton',()=>{
+  if(modalOpen()){if(modalHandlers&&!modalHandlers.locked)closeModal();return}
+  if(!$('#game').hidden){$('#quit').click();return}
+  NATIVE.App.exitApp();
+})}
+if(NATIVE&&NATIVE.SplashScreen){setTimeout(()=>NATIVE.SplashScreen.hide(),150)}
+if(/[?&]debug\b/.test(location.search))window.__LL={get G(){return G},get R(){return R},STATS:()=>STATS,PROF:()=>PROF,newCard,drawBall,LINES};
+refreshHome();
+if(!store.get('seenHelp',false)){store.set('seenHelp',true);loginBonus(true);setTimeout(()=>openPanel('help'),400)}
+else setTimeout(()=>loginBonus(false),300);
+})();
+</script>

@@ -1,0 +1,21 @@
+# Extra words accepted as guesses (one per line). Recent words not yet in the big dictionaries.
+wifi
+doxx
+doxxed
+vaxxed
+vaxx
+vaper
+vapes
+vaping
+emojis
+vlogs
+vlogged
+selfie
+podcast
+memes
+unfriend
+retweet
+bitcoin
+crypto
+biome
+rizz

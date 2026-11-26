@@ -1,0 +1,23 @@
+{
+  "appId": "com.letterlock.game",
+  "appName": "Letterlock",
+  "webDir": "www",
+  "backgroundColor": "#110e2b",
+  "android": {
+    "backgroundColor": "#110e2b",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#110e2b",
+      "showSpinner": false
+    }
+  }
+}
