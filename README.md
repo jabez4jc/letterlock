@@ -31,6 +31,16 @@ Needs Node 20+, JDK 21 and the Android SDK (platform 36). Put `sdk.dir=/path/to/
 The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 Or open the project in Android Studio with `npx cap open android`.
 
+### On GitHub
+`.github/workflows/build-apk.yml` builds the debug APK on every push to `main` and every pull request.
+Download it from the run's **Artifacts** section on the Actions tab. You can also start a build by hand
+from the Actions tab (**Build APK → Run workflow**).
+
+To publish a release, push a version tag. The APK is attached to a new GitHub Release:
+
+    git tag v1.3
+    git push origin v1.3
+
 ## Play Store release
 Create an upload keystore (keep it safe; you need it for every future update), then build a signed bundle:
 
