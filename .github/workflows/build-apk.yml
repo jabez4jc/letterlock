@@ -25,19 +25,19 @@ jobs:
     env:
       KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Install dependencies
         run: npm ci
@@ -86,7 +86,7 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk "dist/Letterlock-${{ steps.ver.outputs.version }}-debug.apk"
           echo "::warning::Signing secrets are not set, so this is a debug build. See README, Release signing."
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Letterlock-${{ steps.ver.outputs.version }}
           path: dist/*
