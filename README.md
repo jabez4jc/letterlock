@@ -32,20 +32,33 @@ The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 Or open the project in Android Studio with `npx cap open android`.
 
 ### On GitHub
-`.github/workflows/build-apk.yml` builds the debug APK on every push to `main` and every pull request.
-Download it from the run's **Artifacts** section on the Actions tab. You can also start a build by hand
-from the Actions tab (**Build APK → Run workflow**).
+`.github/workflows/build-apk.yml` builds the app on every push to `main` and every pull request; you can also
+start it from the Actions tab (**Build APK → Run workflow**). Download the result from the run's **Artifacts** section.
+Once the signing secrets below are set, each run produces a signed `Letterlock-<version>.apk` and a
+`Letterlock-<version>.aab` for the Play Store. Without them it falls back to a debug APK.
 
-To publish a release, push a version tag. The APK is attached to a new GitHub Release:
+To publish a release, push a version tag. The files are attached to a new GitHub Release:
 
     git tag v1.3
     git push origin v1.3
 
+Remember to raise `versionCode` and `versionName` in `android/app/build.gradle` before each release.
+
+## Release signing
+Every release must be signed with the same key, or Android refuses to install it over the previous version.
+Create the key once, on your own computer (needs a JDK for `keytool`):
+
+    bash scripts/make-signing-key.sh
+
+The script writes the key to `~/letterlock-signing/` and prints the 4 secrets to add under
+**Settings → Secrets and variables → Actions**: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. It also writes `android/keystore.properties` (git-ignored),
+so `npm run apk:release` signs local builds with the same key.
+
+Back up `~/letterlock-signing/` somewhere private. Never commit the key. If you publish on Google Play with
+Play App Signing, this key is your *upload key*, and Google can reset it if it's lost.
+
 ## Play Store release
-Create an upload keystore (keep it safe; you need it for every future update), then build a signed bundle:
-
-    keytool -genkey -v -keystore letterlock-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
-    cd android && ./gradlew bundleRelease
-
-and sign it in Android Studio (Build > Generate Signed Bundle) or via `signingConfigs` in `android/app/build.gradle`.
-Bump `versionCode` / `versionName` in `android/app/build.gradle` for each release.
+1. Set up release signing (above) and raise `versionCode` / `versionName` in `android/app/build.gradle`.
+2. Push a version tag, or run the workflow by hand, and download `Letterlock-<version>.aab`.
+3. Upload the `.aab` in the Google Play Console. Opt in to Play App Signing when asked.

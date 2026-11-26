@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Release signing. Values come from environment variables (used by GitHub Actions) or, for local builds,
+// from android/keystore.properties (git-ignored), which scripts/make-signing-key.sh writes.
+// Without them the release build is left unsigned and debug builds are unaffected.
+def keyProps = new Properties()
+def keyPropsFile = rootProject.file('keystore.properties')
+if (keyPropsFile.exists()) keyPropsFile.withInputStream { keyProps.load(it) }
+def signing = { String env, String prop -> System.getenv(env) ?: keyProps.getProperty(prop) }
+def releaseStore = signing('LETTERLOCK_KEYSTORE', 'storeFile')
+
 android {
     namespace = "com.letterlock.game"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +25,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseStore) {
+            release {
+                storeFile file(releaseStore)
+                storePassword signing('LETTERLOCK_KEYSTORE_PASSWORD', 'storePassword')
+                keyAlias signing('LETTERLOCK_KEY_ALIAS', 'keyAlias')
+                keyPassword signing('LETTERLOCK_KEY_PASSWORD', 'keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseStore) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
